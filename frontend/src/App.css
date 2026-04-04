@@ -11,6 +11,110 @@ h1 {
   margin-bottom: 1.5rem;
 }
 
+/* セッション選択画面 */
+.session-create {
+  display: flex;
+  gap: 0.5rem;
+  margin-bottom: 1.5rem;
+}
+
+.session-create input {
+  flex: 1;
+  padding: 0.6rem 0.8rem;
+  border: 2px solid #dee2e6;
+  border-radius: 8px;
+  font-size: 0.95rem;
+  outline: none;
+  transition: border-color 0.2s;
+}
+
+.session-create input:focus {
+  border-color: #4dabf7;
+}
+
+.session-create button {
+  padding: 0.6rem 1rem;
+  background: #228be6;
+  color: white;
+  border: none;
+  border-radius: 8px;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.session-create button:disabled {
+  background: #adb5bd;
+  cursor: default;
+}
+
+.session-list {
+  text-align: left;
+}
+
+.session-list h2 {
+  font-size: 1rem;
+  color: #666;
+  margin-bottom: 0.5rem;
+}
+
+.session-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  width: 100%;
+  padding: 0.8rem 1rem;
+  margin-bottom: 0.4rem;
+  background: #f8f9fa;
+  border: 1px solid #dee2e6;
+  border-radius: 8px;
+  cursor: pointer;
+  text-align: left;
+  font-size: 0.95rem;
+  transition: background 0.2s;
+}
+
+.session-item:hover {
+  background: #e9ecef;
+}
+
+.session-name {
+  font-weight: 600;
+}
+
+.session-date {
+  font-size: 0.8rem;
+  color: #868e96;
+}
+
+/* 読み取り画面ヘッダー */
+.scan-header {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-bottom: 1rem;
+}
+
+.scan-header h1 {
+  margin-bottom: 0;
+  font-size: 1.3rem;
+}
+
+.back-btn {
+  padding: 0.4rem 0.6rem;
+  background: none;
+  border: 1px solid #dee2e6;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 0.85rem;
+  color: #495057;
+}
+
+.back-btn:hover {
+  background: #f1f3f5;
+}
+
+/* ステータス */
 .status {
   display: flex;
   align-items: center;
@@ -58,6 +162,7 @@ h1 {
   50% { opacity: 0.6; }
 }
 
+/* カード情報 */
 .card-info {
   background: #f8f9fa;
   border-radius: 8px;
@@ -71,12 +176,6 @@ h1 {
   box-shadow: 0 0 0 3px rgba(40, 167, 69, 0.3);
 }
 
-.uid {
-  font-family: monospace;
-  font-size: 0.85rem;
-  color: #666;
-}
-
 .student-id {
   font-size: 1.1rem;
   font-weight: 600;
@@ -87,3 +186,31 @@ h1 {
   font-weight: 700;
 }
 
+/* 出席者一覧 */
+.attendance-list {
+  text-align: left;
+  margin-top: 1rem;
+}
+
+.attendance-list h2 {
+  font-size: 1rem;
+  color: #666;
+  margin-bottom: 0.5rem;
+}
+
+.attendance-item {
+  display: flex;
+  gap: 1rem;
+  padding: 0.5rem 0.8rem;
+  border-bottom: 1px solid #eee;
+  font-size: 0.9rem;
+}
+
+.attendance-id {
+  font-family: monospace;
+  color: #495057;
+}
+
+.attendance-name {
+  font-weight: 600;
+}
