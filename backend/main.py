@@ -75,6 +75,8 @@ def nfc_loop():
         card_uid = tag.identifier.hex().upper()
         print(f"[DEBUG] tag type: {type(tag).__name__}, uid: {card_uid}")
 
+        emit("nfc:status", {"status": "reading"})
+
         if not isinstance(tag, nfc.tag.tt3.Type3Tag):
             print(f"[WARN] FeliCa以外のカード（{type(tag).__name__}）→ スキップ")
             emit("nfc:read", {
@@ -82,9 +84,9 @@ def nfc_loop():
                 "student_id": None,
                 "student_name": None,
             })
+            emit("nfc:status", {"status": "done"})
             return True
 
-        # FeliCa のサービス一覧をダンプ（デバッグ用）
         print(f"[DEBUG] system code: {tag.sys if hasattr(tag, 'sys') else 'N/A'}")
         student_id, student_name = read_fitcard(tag)
 
@@ -93,6 +95,7 @@ def nfc_loop():
             "student_id": student_id,
             "student_name": student_name,
         })
+        emit("nfc:status", {"status": "done"})
 
         return True
 

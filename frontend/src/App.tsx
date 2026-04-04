@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import './App.css'
 
-type NfcStatus = 'waiting' | 'ready' | 'error'
+type NfcStatus = 'waiting' | 'ready' | 'reading' | 'done' | 'error'
 
 interface NfcReadEvent {
   card_uid: string
@@ -9,76 +9,67 @@ interface NfcReadEvent {
   student_name: string | null
 }
 
-interface ApiResultEvent {
-  action?: string
-  user?: { display_name?: string }
-  error?: string
+const STATUS_CONFIG: Record<NfcStatus, { label: string; icon: string }> = {
+  waiting: { label: 'NFC リーダー接続待ち...', icon: '🔌' },
+  ready: { label: 'カードをかざしてください', icon: '📡' },
+  reading: { label: '読み取り中...', icon: '⏳' },
+  done: { label: '読み取り完了', icon: '✅' },
+  error: { label: 'エラー', icon: '❌' },
 }
 
 function App() {
   const [status, setStatus] = useState<NfcStatus>('waiting')
   const [lastRead, setLastRead] = useState<NfcReadEvent | null>(null)
-  const [lastResult, setLastResult] = useState<ApiResultEvent | null>(null)
   const [errorMsg, setErrorMsg] = useState('')
 
   useEffect(() => {
+    let doneTimer: ReturnType<typeof setTimeout>
+
     const onStatus = (e: CustomEvent) => {
       const d = e.detail
-      setStatus(d.status)
       if (d.message) setErrorMsg(d.message)
+
+      setStatus(d.status)
+
+      // done状態は3秒後にreadyに戻す
+      if (d.status === 'done') {
+        doneTimer = setTimeout(() => setStatus('ready'), 3000)
+      }
     }
 
     const onRead = (e: CustomEvent) => {
       setLastRead(e.detail)
-      setLastResult(null)
-    }
-
-    const onApiResult = (e: CustomEvent) => {
-      setLastResult(e.detail)
     }
 
     window.addEventListener('nfc:status', onStatus as EventListener)
     window.addEventListener('nfc:read', onRead as EventListener)
-    window.addEventListener('nfc:api-result', onApiResult as EventListener)
 
     return () => {
+      clearTimeout(doneTimer)
       window.removeEventListener('nfc:status', onStatus as EventListener)
       window.removeEventListener('nfc:read', onRead as EventListener)
-      window.removeEventListener('nfc:api-result', onApiResult as EventListener)
     }
   }, [])
+
+  const { label, icon } = STATUS_CONFIG[status]
 
   return (
     <div className="app">
       <h1>NFC 入退室管理</h1>
 
       <div className={`status ${status}`}>
-        {status === 'waiting' && 'NFC リーダー接続待ち...'}
-        {status === 'ready' && 'カードをかざしてください'}
-        {status === 'error' && `エラー: ${errorMsg}`}
+        <span className="status-icon">{icon}</span>
+        <span>{status === 'error' ? `${label}: ${errorMsg}` : label}</span>
       </div>
 
       {lastRead && (
-        <div className="card-info">
+        <div className={`card-info ${status === 'done' ? 'highlight' : ''}`}>
           <p className="uid">UID: {lastRead.card_uid}</p>
           {lastRead.student_id && (
             <>
               <p className="student-id">学籍番号: {lastRead.student_id}</p>
               <p className="student-name">{lastRead.student_name}</p>
             </>
-          )}
-        </div>
-      )}
-
-      {lastResult && (
-        <div className={`result ${lastResult.error ? 'error' : 'success'}`}>
-          {lastResult.error ? (
-            <p>エラー: {lastResult.error}</p>
-          ) : (
-            <p>
-              {lastResult.action === 'check_in' ? '入室' : '退室'}:{' '}
-              {lastResult.user?.display_name}
-            </p>
           )}
         </div>
       )}
