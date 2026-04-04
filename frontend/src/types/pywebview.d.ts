@@ -10,6 +10,7 @@ interface Attendance {
   student_id: string
   student_name: string
   card_uid: string
+  note: string
   scanned_at: string
 }
 
@@ -24,6 +25,7 @@ interface PyWebViewApi {
     student_name: string,
     card_uid: string
   ): Promise<{ status: 'recorded' | 'duplicate' }>
+  update_note(attendance_id: number, note: string): Promise<{ status: string }>
 }
 
 interface Window {

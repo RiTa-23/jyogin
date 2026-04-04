@@ -18,6 +18,34 @@ const STATUS_CONFIG: Record<NfcStatus, { label: string; icon: string }> = {
   error: { label: 'エラー', icon: '❌' },
 }
 
+function NoteInput({ attendance }: { attendance: Attendance }) {
+  const [value, setValue] = useState(attendance.note ?? '')
+  const timerRef = useRef<ReturnType<typeof setTimeout>>()
+
+  const save = (note: string) => {
+    const api = window.pywebview?.api
+    if (!api || note === (attendance.note ?? '')) return
+    api.update_note(attendance.id, note)
+  }
+
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const v = e.target.value
+    setValue(v)
+    clearTimeout(timerRef.current)
+    timerRef.current = setTimeout(() => save(v), 500)
+  }
+
+  return (
+    <input
+      className="attendance-note"
+      type="text"
+      placeholder="備考"
+      value={value}
+      onChange={handleChange}
+    />
+  )
+}
+
 function App() {
   const [page, setPage] = useState<Page>('session-select')
   const [sessions, setSessions] = useState<Session[]>([])
@@ -28,6 +56,7 @@ function App() {
   const [status, setStatus] = useState<NfcStatus>('waiting')
   const [lastRead, setLastRead] = useState<NfcReadEvent | null>(null)
   const [errorMsg, setErrorMsg] = useState('')
+
 
   const activeSessionRef = useRef(activeSession)
   useEffect(() => {
@@ -208,6 +237,8 @@ function App() {
           <div key={a.id} className="attendance-item">
             <span className="attendance-id">{a.student_id}</span>
             <span className="attendance-name">{a.student_name}</span>
+            <span className="attendance-time">{a.scanned_at?.slice(11, 16)}</span>
+            <NoteInput attendance={a} />
           </div>
         ))}
       </div>

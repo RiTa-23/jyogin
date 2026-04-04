@@ -224,17 +224,41 @@ h1 {
 
 .attendance-item {
   display: flex;
-  gap: 1rem;
-  padding: 0.5rem 0.8rem;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.4rem 0.8rem;
   border-bottom: 1px solid #eee;
-  font-size: 0.9rem;
+  font-size: 0.85rem;
 }
 
 .attendance-id {
   font-family: monospace;
   color: #495057;
+  white-space: nowrap;
 }
 
 .attendance-name {
   font-weight: 600;
+  white-space: nowrap;
+}
+
+.attendance-time {
+  font-size: 0.75rem;
+  color: #868e96;
+  white-space: nowrap;
+}
+
+.attendance-note {
+  flex: 1;
+  min-width: 0;
+  padding: 0.25rem 0.4rem;
+  border: 1px solid #dee2e6;
+  border-radius: 4px;
+  font-size: 0.8rem;
+  color: #495057;
+}
+
+.attendance-note:focus {
+  border-color: #4dabf7;
+  outline: none;
 }

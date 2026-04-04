@@ -44,11 +44,17 @@ def init_db():
             student_id TEXT NOT NULL,
             student_name TEXT,
             card_uid TEXT,
+            note TEXT DEFAULT '',
             scanned_at TEXT DEFAULT (datetime('now', 'localtime')),
             FOREIGN KEY (session_id) REFERENCES sessions(id),
             UNIQUE(session_id, student_id)
         )"""
     )
+    # 既存DBへのマイグレーション: note カラム追加
+    try:
+        conn.execute("ALTER TABLE attendances ADD COLUMN note TEXT DEFAULT ''")
+    except sqlite3.OperationalError:
+        pass  # 既に存在する
     conn.commit()
     conn.close()
 
@@ -107,6 +113,17 @@ class Api:
         except sqlite3.IntegrityError:
             conn.close()
             return {"status": "duplicate"}
+
+    def update_note(self, attendance_id, note):
+        """出席レコードの備考を更新"""
+        conn = sqlite3.connect(DB_PATH)
+        conn.execute(
+            "UPDATE attendances SET note = ? WHERE id = ?",
+            (note, attendance_id),
+        )
+        conn.commit()
+        conn.close()
+        return {"status": "updated"}
 
 
 def read_fitcard(tag):
