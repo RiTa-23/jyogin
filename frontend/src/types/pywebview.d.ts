@@ -16,6 +16,7 @@ interface Attendance {
 interface PyWebViewApi {
   create_session(name: string): Promise<Session>
   get_sessions(): Promise<Session[]>
+  delete_session(session_id: number): Promise<{ status: string }>
   get_attendances(session_id: number): Promise<Attendance[]>
   record_attendance(
     session_id: number,

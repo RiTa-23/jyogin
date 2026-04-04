@@ -60,22 +60,46 @@ h1 {
 
 .session-item {
   display: flex;
-  justify-content: space-between;
   align-items: center;
-  width: 100%;
-  padding: 0.8rem 1rem;
   margin-bottom: 0.4rem;
   background: #f8f9fa;
   border: 1px solid #dee2e6;
   border-radius: 8px;
-  cursor: pointer;
-  text-align: left;
-  font-size: 0.95rem;
+  overflow: hidden;
   transition: background 0.2s;
 }
 
 .session-item:hover {
   background: #e9ecef;
+}
+
+.session-item-main {
+  flex: 1;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0.8rem 1rem;
+  background: none;
+  border: none;
+  cursor: pointer;
+  text-align: left;
+  font-size: 0.95rem;
+}
+
+.session-delete {
+  padding: 0.8rem 0.8rem;
+  background: none;
+  border: none;
+  border-left: 1px solid #dee2e6;
+  color: #adb5bd;
+  font-size: 1.1rem;
+  cursor: pointer;
+  transition: color 0.2s, background 0.2s;
+}
+
+.session-delete:hover {
+  color: #e03131;
+  background: #fff5f5;
 }
 
 .session-name {

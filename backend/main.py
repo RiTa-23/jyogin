@@ -84,6 +84,15 @@ class Api:
         conn.close()
         return [dict(r) for r in rows]
 
+    def delete_session(self, session_id):
+        """セッションと関連する出席データを削除"""
+        conn = sqlite3.connect(DB_PATH)
+        conn.execute("DELETE FROM attendances WHERE session_id = ?", (session_id,))
+        conn.execute("DELETE FROM sessions WHERE id = ?", (session_id,))
+        conn.commit()
+        conn.close()
+        return {"status": "deleted"}
+
     def record_attendance(self, session_id, student_id, student_name, card_uid):
         """出席を記録する（重複時はスキップ）"""
         conn = sqlite3.connect(DB_PATH)

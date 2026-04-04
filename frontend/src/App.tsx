@@ -37,7 +37,14 @@ function App() {
   // セッション一覧を取得
   useEffect(() => {
     const load = async () => {
-      const api = window.pywebview?.api
+      // pywebview.api が準備されるまで待つ
+      let api = window.pywebview?.api
+      if (!api) {
+        await new Promise<void>((resolve) => {
+          window.addEventListener('pywebviewready', () => resolve(), { once: true })
+        })
+        api = window.pywebview?.api
+      }
       if (!api) return
       const list = await api.get_sessions()
       setSessions(list)
@@ -115,6 +122,15 @@ function App() {
     setPage('scanning')
   }
 
+  const handleDeleteSession = async (e: React.MouseEvent, session: Session) => {
+    e.stopPropagation()
+    if (!confirm(`「${session.name}」を削除しますか？`)) return
+    const api = window.pywebview?.api
+    if (!api) return
+    await api.delete_session(session.id)
+    setSessions((prev) => prev.filter((s) => s.id !== session.id))
+  }
+
   const handleBack = () => {
     setActiveSession(null)
     setAttendances([])
@@ -133,7 +149,6 @@ function App() {
             placeholder="セッション名（例：第1回部会）"
             value={newSessionName}
             onChange={(e) => setNewSessionName(e.target.value)}
-            onKeyDown={(e) => e.key === 'Enter' && handleCreateSession()}
           />
           <button onClick={handleCreateSession} disabled={!newSessionName.trim()}>
             新規作成
@@ -144,14 +159,21 @@ function App() {
           <div className="session-list">
             <h2>過去のセッション</h2>
             {sessions.map((s) => (
-              <button
-                key={s.id}
-                className="session-item"
-                onClick={() => handleSelectSession(s)}
-              >
-                <span className="session-name">{s.name}</span>
-                <span className="session-date">{s.created_at}</span>
-              </button>
+              <div key={s.id} className="session-item">
+                <button
+                  className="session-item-main"
+                  onClick={() => handleSelectSession(s)}
+                >
+                  <span className="session-name">{s.name}</span>
+                  <span className="session-date">{s.created_at}</span>
+                </button>
+                <button
+                  className="session-delete"
+                  onClick={(e) => handleDeleteSession(e, s)}
+                >
+                  ×
+                </button>
+              </div>
             ))}
           </div>
         )}
