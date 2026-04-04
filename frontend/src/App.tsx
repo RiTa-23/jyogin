@@ -55,7 +55,7 @@ function App() {
 
   return (
     <div className="app">
-      <h1>NFC 入退室管理</h1>
+      <h1>NFC 出席確認</h1>
 
       <div className={`status ${status}`}>
         <span className="status-icon">{icon}</span>
