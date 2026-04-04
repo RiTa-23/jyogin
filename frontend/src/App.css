@@ -1,0 +1,73 @@
+.app {
+  max-width: 420px;
+  margin: 0 auto;
+  padding: 2rem;
+  text-align: center;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+}
+
+h1 {
+  font-size: 1.5rem;
+  margin-bottom: 1.5rem;
+}
+
+.status {
+  padding: 1rem;
+  border-radius: 8px;
+  margin-bottom: 1.5rem;
+  font-weight: 600;
+}
+
+.status.waiting {
+  background: #fef3cd;
+  color: #856404;
+}
+
+.status.ready {
+  background: #d4edda;
+  color: #155724;
+}
+
+.status.error {
+  background: #f8d7da;
+  color: #721c24;
+}
+
+.card-info {
+  background: #f8f9fa;
+  border-radius: 8px;
+  padding: 1rem;
+  margin-bottom: 1rem;
+}
+
+.uid {
+  font-family: monospace;
+  font-size: 0.85rem;
+  color: #666;
+}
+
+.student-id {
+  font-size: 1.1rem;
+  font-weight: 600;
+}
+
+.student-name {
+  font-size: 1.4rem;
+  font-weight: 700;
+}
+
+.result {
+  padding: 1rem;
+  border-radius: 8px;
+  font-weight: 600;
+}
+
+.result.success {
+  background: #d4edda;
+  color: #155724;
+}
+
+.result.error {
+  background: #f8d7da;
+  color: #721c24;
+}
