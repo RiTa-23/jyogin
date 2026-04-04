@@ -145,7 +145,7 @@ def main():
         )
     else:
         window = webview.create_window(
-            "NFC 入退室管理",
+            "NFC 出席確認",
             url=os.path.join(url, "index.html"),
             js_api=api,
             width=480,
