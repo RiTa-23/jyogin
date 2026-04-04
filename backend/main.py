@@ -7,6 +7,7 @@ pywebview で React フロントエンドを表示し、
 
 import json
 import os
+import sys
 import threading
 import time
 import webview
@@ -14,33 +15,26 @@ import webview
 import nfc
 import nfc.tag.tt3
 import jaconv
-import requests
 
-# ── 設定 ──
-API_URL = os.environ.get("API_URL", "")
-API_KEY = os.environ.get("API_KEY", "")
-HEADERS = {
-    "Content-Type": "application/json",
-    "X-Api-Key": API_KEY,
-}
 TOUCH_COOLDOWN = 2.0
 
 # pywebview ウィンドウへの参照
 window = None
+window_ready = threading.Event()
 
 
 class Api:
     """JS から呼べる Python API（window.pywebview.api.xxx）"""
-
-    def get_config(self):
-        return {
-            "api_url": API_URL,
-            "has_api_key": bool(API_KEY),
-        }
+    pass
 
 
 def read_fitcard(tag):
     """FIT 学生証から学籍番号・氏名を読み取る"""
+    try:
+        tag.dump()
+    except Exception:
+        pass
+
     try:
         service_code = 0x1A8B
         sc = nfc.tag.tt3.ServiceCode(service_code >> 6, service_code & 0x3F)
@@ -51,33 +45,20 @@ def read_fitcard(tag):
         student_id = data[2:9].decode("utf-8").strip()
         name_hankaku = data[16:32].decode("shift_jis").strip().replace("\x00", "")
         name_full = jaconv.h2z(name_hankaku, kana=True)
+        print(f"[DEBUG] Student ID: {student_id}, Name: {name_full}")
         return student_id, name_full
     except Exception as e:
         print(f"[ERROR] 学生証読み取りエラー: {e}")
         return None, None
 
 
-def send_to_api(card_uid, student_id=None, student_name=None):
-    """Rails API に POST"""
-    payload = {"card_uid": card_uid}
-    if student_id:
-        payload["student_id"] = student_id
-    if student_name:
-        payload["student_name"] = student_name
-
-    try:
-        resp = requests.post(API_URL, json=payload, headers=HEADERS, timeout=5)
-        return resp.json()
-    except requests.exceptions.RequestException as e:
-        return {"error": str(e)}
-
 
 def emit(event, data):
     """フロントエンドにイベントを送る"""
-    if window:
-        window.evaluate_js(
-            f"window.dispatchEvent(new CustomEvent('{event}', {{detail: {json.dumps(data, ensure_ascii=False)}}}));"
-        )
+    window_ready.wait()
+    window.evaluate_js(
+        f"window.dispatchEvent(new CustomEvent('{event}', {{detail: {json.dumps(data, ensure_ascii=False)}}}));"
+    )
 
 
 def nfc_loop():
@@ -92,6 +73,19 @@ def nfc_loop():
         last_touch = now
 
         card_uid = tag.identifier.hex().upper()
+        print(f"[DEBUG] tag type: {type(tag).__name__}, uid: {card_uid}")
+
+        if not isinstance(tag, nfc.tag.tt3.Type3Tag):
+            print(f"[WARN] FeliCa以外のカード（{type(tag).__name__}）→ スキップ")
+            emit("nfc:read", {
+                "card_uid": card_uid,
+                "student_id": None,
+                "student_name": None,
+            })
+            return True
+
+        # FeliCa のサービス一覧をダンプ（デバッグ用）
+        print(f"[DEBUG] system code: {tag.sys if hasattr(tag, 'sys') else 'N/A'}")
         student_id, student_name = read_fitcard(tag)
 
         emit("nfc:read", {
@@ -99,10 +93,6 @@ def nfc_loop():
             "student_id": student_id,
             "student_name": student_name,
         })
-
-        if API_URL and API_KEY:
-            result = send_to_api(card_uid, student_id, student_name)
-            emit("nfc:api-result", result)
 
         return True
 
@@ -120,6 +110,7 @@ def nfc_loop():
 
 def on_webview_loaded():
     """WebView 読み込み完了後に NFC スレッドを起動"""
+    window_ready.set()
     threading.Thread(target=nfc_loop, daemon=True).start()
 
 
@@ -128,7 +119,11 @@ def main():
 
     # 開発中は Vite dev server、本番は dist を読む
     dev_url = "http://localhost:5173"
-    dist_dir = os.path.join(os.path.dirname(__file__), "..", "frontend", "dist")
+    # PyInstaller バンドル時は _MEIPASS から探す
+    if getattr(sys, "_MEIPASS", None):
+        dist_dir = os.path.join(sys._MEIPASS, "frontend", "dist")
+    else:
+        dist_dir = os.path.join(os.path.dirname(__file__), "..", "frontend", "dist")
 
     if os.environ.get("DEV"):
         url = dev_url
