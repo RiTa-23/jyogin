@@ -52,5 +52,19 @@ pyinstaller -y --windowed --name "JyogiNFC" \
   backend/main.py
 
 # 3. 出力先
-# dist/JyogiNFC.app (macOS)
+# dist/JyogiN.app (macOS)
 ```
+
+## リリース（GitHub Actions）
+
+タグをpushすると、GitHub Actions が macOS / Windows 両方のアプリを自動ビルドし、GitHub Release にアップロードします。
+
+```bash
+# バージョンタグを作成してpush
+git tag v1.0.0
+git push origin v1.0.0
+```
+
+ビルド完了後、GitHub の Releases ページからダウンロードできます。
+
+次のリリース時はバージョンを上げてタグを打ちます（例: `v1.0.1`, `v1.1.0`）。
