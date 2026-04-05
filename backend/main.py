@@ -14,10 +14,11 @@ import sys
 import threading
 import time
 
-# Windows: pythonnet を coreclr ランタイムで初期化
+# Windows: pythonnet を .NET Desktop Runtime (WinForms対応) で初期化
 if sys.platform == 'win32':
     import glob
-    from pythonnet import load
+    from clr_loader import get_coreclr
+    from pythonnet import set_runtime
 
     # .NET Desktop Runtime のパスを検出
     dotnet_root = os.environ.get("DOTNET_ROOT", r"C:\Program Files\dotnet")
@@ -26,6 +27,12 @@ if sys.platform == 'win32':
         reverse=True,
     )
     if desktop_dirs:
+        # アプリ実行ディレクトリに runtimeconfig.json を作成
+        if getattr(sys, "_MEIPASS", None):
+            config_dir = sys._MEIPASS
+        else:
+            config_dir = os.path.dirname(os.path.abspath(__file__))
+        config_path = os.path.join(config_dir, "jyogin.runtimeconfig.json")
         runtime_config = {
             "runtimeOptions": {
                 "tfm": "net8.0",
@@ -35,12 +42,12 @@ if sys.platform == 'win32':
                 },
             }
         }
-        import tempfile
-        config_path = os.path.join(tempfile.gettempdir(), "jyogin.runtimeconfig.json")
         with open(config_path, "w") as f:
             json.dump(runtime_config, f)
-        load("coreclr", runtime_config=config_path)
+        rt = get_coreclr(config_path)
+        set_runtime(rt)
     else:
+        from pythonnet import load
         load("coreclr")
 
 import webview
