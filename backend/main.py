@@ -25,6 +25,7 @@ TOUCH_COOLDOWN = 2.0
 # pywebview ウィンドウへの参照
 window = None
 window_ready = threading.Event()
+api = None
 
 # DB パス（OSごとの標準データディレクトリに保存）
 def _get_data_dir():
@@ -67,13 +68,16 @@ def init_db():
     conn.execute(
         """CREATE TABLE IF NOT EXISTS students (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
-            student_id TEXT NOT NULL UNIQUE,
+            student_id TEXT NOT NULL,
             student_name TEXT,
-            card_uid TEXT,
+            card_uid TEXT NOT NULL UNIQUE,
             created_at TEXT DEFAULT (datetime('now', 'localtime')),
             updated_at TEXT DEFAULT (datetime('now', 'localtime'))
         )"""
     )
+    # 既存DBへのマイグレーション: students テーブルの card_uid に UNIQUE 制約追加
+    # （既存テーブルの制約変更はALTERでできないため、新規作成時のみ有効）
+
     # 既存DBへのマイグレーション: note カラム追加
     try:
         conn.execute("ALTER TABLE attendances ADD COLUMN note TEXT DEFAULT ''")
@@ -114,6 +118,16 @@ class Api:
         conn.close()
         return [dict(r) for r in rows]
 
+    def find_student_by_uid(self, card_uid):
+        """card_uidで学生を検索する"""
+        conn = sqlite3.connect(DB_PATH)
+        conn.row_factory = sqlite3.Row
+        row = conn.execute(
+            "SELECT * FROM students WHERE card_uid = ?", (card_uid,)
+        ).fetchone()
+        conn.close()
+        return dict(row) if row else None
+
     def get_students(self):
         """登録済み学生一覧を返す"""
         conn = sqlite3.connect(DB_PATH)
@@ -135,13 +149,13 @@ class Api:
         """出席を記録し、studentsテーブルにも登録する"""
         conn = sqlite3.connect(DB_PATH)
 
-        # studentsテーブルに未登録なら追加、登録済みなら名前を更新
+        # studentsテーブルにcard_uidが未登録なら追加、登録済みなら更新
         conn.execute(
             """INSERT INTO students (student_id, student_name, card_uid)
                VALUES (?, ?, ?)
-               ON CONFLICT(student_id) DO UPDATE SET
+               ON CONFLICT(card_uid) DO UPDATE SET
+                 student_id = excluded.student_id,
                  student_name = excluded.student_name,
-                 card_uid = excluded.card_uid,
                  updated_at = datetime('now', 'localtime')""",
             (student_id, student_name, card_uid),
         )
@@ -276,18 +290,29 @@ def nfc_loop():
 
         emit("nfc:status", {"status": "reading"})
 
-        if not isinstance(tag, nfc.tag.tt3.Type3Tag):
-            print(f"[WARN] FeliCa以外のカード（{type(tag).__name__}）→ スキップ")
-            emit("nfc:read", {
-                "card_uid": card_uid,
-                "student_id": None,
-                "student_name": None,
-            })
-            emit("nfc:status", {"status": "done"})
-            return True
+        # studentsテーブルにcard_uidが登録済みか確認
+        existing = api.find_student_by_uid(card_uid)
 
-        print(f"[DEBUG] system code: {tag.sys if hasattr(tag, 'sys') else 'N/A'}")
-        student_id, student_name = read_fitcard(tag)
+        if existing:
+            # 登録済み → カード読み取りをスキップしてDBから取得
+            student_id = existing["student_id"]
+            student_name = existing["student_name"]
+            print(f"[DEBUG] DB hit: {student_id} {student_name}")
+        else:
+            # 未登録 → カードから読み取り
+            if not isinstance(tag, nfc.tag.tt3.Type3Tag):
+                print(f"[WARN] FeliCa以外のカード（{type(tag).__name__}）→ スキップ")
+                emit("nfc:read", {
+                    "card_uid": card_uid,
+                    "student_id": None,
+                    "student_name": None,
+                })
+                emit("nfc:status", {"status": "done"})
+                return True
+
+            print(f"[DEBUG] system code: {tag.sys if hasattr(tag, 'sys') else 'N/A'}")
+            student_id, student_name = read_fitcard(tag)
+            print(f"[DEBUG] New student: {student_id} {student_name}")
 
         emit("nfc:read", {
             "card_uid": card_uid,
@@ -334,6 +359,7 @@ def main():
     else:
         url = dist_dir
 
+    global api
     api = Api()
 
     if os.environ.get("DEV"):
