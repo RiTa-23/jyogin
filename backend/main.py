@@ -63,6 +63,16 @@ def init_db():
             UNIQUE(session_id, student_id)
         )"""
     )
+    conn.execute(
+        """CREATE TABLE IF NOT EXISTS students (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            student_id TEXT NOT NULL UNIQUE,
+            student_name TEXT,
+            card_uid TEXT,
+            created_at TEXT DEFAULT (datetime('now', 'localtime')),
+            updated_at TEXT DEFAULT (datetime('now', 'localtime'))
+        )"""
+    )
     # 既存DBへのマイグレーション: note カラム追加
     try:
         conn.execute("ALTER TABLE attendances ADD COLUMN note TEXT DEFAULT ''")
@@ -103,6 +113,14 @@ class Api:
         conn.close()
         return [dict(r) for r in rows]
 
+    def get_students(self):
+        """登録済み学生一覧を返す"""
+        conn = sqlite3.connect(DB_PATH)
+        conn.row_factory = sqlite3.Row
+        rows = conn.execute("SELECT * FROM students ORDER BY student_id").fetchall()
+        conn.close()
+        return [dict(r) for r in rows]
+
     def delete_session(self, session_id):
         """セッションと関連する出席データを削除"""
         conn = sqlite3.connect(DB_PATH)
@@ -113,8 +131,20 @@ class Api:
         return {"status": "deleted"}
 
     def record_attendance(self, session_id, student_id, student_name, card_uid):
-        """出席を記録する（重複時はスキップ）"""
+        """出席を記録し、studentsテーブルにも登録する"""
         conn = sqlite3.connect(DB_PATH)
+
+        # studentsテーブルに未登録なら追加、登録済みなら名前を更新
+        conn.execute(
+            """INSERT INTO students (student_id, student_name, card_uid)
+               VALUES (?, ?, ?)
+               ON CONFLICT(student_id) DO UPDATE SET
+                 student_name = excluded.student_name,
+                 card_uid = excluded.card_uid,
+                 updated_at = datetime('now', 'localtime')""",
+            (student_id, student_name, card_uid),
+        )
+
         try:
             conn.execute(
                 "INSERT INTO attendances (session_id, student_id, student_name, card_uid) VALUES (?, ?, ?, ?)",
