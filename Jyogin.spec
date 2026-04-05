@@ -9,11 +9,9 @@ import sys
 hiddenimports = []
 hiddenimports += collect_submodules('nfc')
 
-# Windows: pywebview が pythonnet/.NET を使うため
+# Windows: EdgeChromium (WebView2) バックエンドを使用
 if sys.platform == 'win32':
-    hiddenimports += collect_submodules('pythonnet')
-    hiddenimports += collect_submodules('clr_loader')
-    hiddenimports += ['clr', 'webview.platforms.winforms']
+    hiddenimports += ['webview.platforms.edgechromium']
 
 a = Analysis(
     ['backend/main.py'],

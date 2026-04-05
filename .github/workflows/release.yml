@@ -35,7 +35,7 @@ jobs:
           python-version: '3.12'
 
       - name: Install Python dependencies
-        run: pip install pywebview nfcpy jaconv pyinstaller pythonnet
+        run: pip install pywebview nfcpy jaconv pyinstaller
 
       - name: Install libusb (macOS)
         if: runner.os == 'macOS'

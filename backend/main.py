@@ -523,7 +523,8 @@ def main():
         ]),
     ]
 
-    webview.start(on_webview_loaded, menu=menu, debug=bool(os.environ.get("DEV")))
+    gui = 'edgechromium' if sys.platform == 'win32' else None
+    webview.start(on_webview_loaded, menu=menu, gui=gui, debug=bool(os.environ.get("DEV")))
 
 
 if __name__ == "__main__":
