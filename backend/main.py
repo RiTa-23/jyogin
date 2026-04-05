@@ -143,12 +143,26 @@ class Api:
         if not session:
             return {"status": "error", "message": "セッションが見つかりません"}
 
+        def sanitize_cell(value):
+            """スプレッドシートの数式インジェクションを防ぐ"""
+            if value is None:
+                return ""
+            s = str(value)
+            if s and s[0] in ("=", "+", "-", "@"):
+                return "'" + s
+            return s
+
         # CSV文字列を生成
         output = io.StringIO()
         writer = csv.writer(output)
         writer.writerow(["学籍番号", "氏名", "スキャン日時", "備考"])
         for r in rows:
-            writer.writerow([r["student_id"], r["student_name"], r["scanned_at"], r["note"] or ""])
+            writer.writerow([
+                sanitize_cell(r["student_id"]),
+                sanitize_cell(r["student_name"]),
+                sanitize_cell(r["scanned_at"]),
+                sanitize_cell(r["note"]),
+            ])
         csv_text = output.getvalue()
 
         # ファイル保存ダイアログ
@@ -162,8 +176,11 @@ class Api:
             return {"status": "cancelled"}
 
         path = save_path if isinstance(save_path, str) else save_path[0]
-        with open(path, "w", encoding="utf-8-sig", newline="") as f:
-            f.write(csv_text)
+        try:
+            with open(path, "w", encoding="utf-8-sig", newline="") as f:
+                f.write(csv_text)
+        except OSError as e:
+            return {"status": "error", "message": str(e)}
 
         return {"status": "saved", "path": path}
 

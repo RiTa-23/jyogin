@@ -222,7 +222,14 @@ function App() {
           onClick={async () => {
             const api = window.pywebview?.api
             if (!api || !activeSession) return
-            await api.export_csv(activeSession.id)
+            try {
+              const result = await api.export_csv(activeSession.id)
+              if (result.status === 'error') {
+                alert(`エクスポート失敗: ${result.message}`)
+              }
+            } catch (e) {
+              alert(`エクスポート失敗: ${e}`)
+            }
           }}
         >
           CSV出力
