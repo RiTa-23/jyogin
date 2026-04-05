@@ -150,7 +150,10 @@ h1 {
 
 .scan-header h1 {
   margin-bottom: 0;
-  font-size: 1.3rem;
+  font-size: 1.6rem;
+  font-weight: 800;
+  font-family: 'Nunito', sans-serif;
+  letter-spacing: 0.04em;
   flex: 1;
 }
 
