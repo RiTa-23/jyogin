@@ -2,7 +2,7 @@ import { useEffect, useState, useRef } from 'react'
 import './App.css'
 
 type NfcStatus = 'waiting' | 'ready' | 'reading' | 'done' | 'error'
-type Page = 'session-select' | 'scanning' | 'students' | 'hub-settings'
+type Page = 'session-select' | 'scanning' | 'students' | 'members' | 'hub-settings'
 
 interface NfcReadEvent {
   card_uid: string
@@ -134,6 +134,13 @@ function App() {
         if (api) {
           const list = await api.get_students()
           setStudents(list)
+        }
+      }
+      if (targetPage === 'members') {
+        const api = window.pywebview?.api
+        if (api) {
+          const members = await api.get_members()
+          setHubMembers(members)
         }
       }
       if (targetPage === 'hub-settings') {
@@ -285,12 +292,56 @@ function App() {
     )
   }
 
+  if (page === 'members') {
+    return (
+      <div className="app">
+        <header className="scan-header">
+          <button className="back-btn" onClick={handleBack}>← 戻る</button>
+          <h1>部員一覧</h1>
+        </header>
+
+        <div className="students-list">
+          <p className="students-count">{hubMembers.length}名</p>
+          <table className="students-table">
+            <thead>
+              <tr>
+                <th></th>
+                <th>学籍番号</th>
+                <th>本名</th>
+                <th>Discord</th>
+              </tr>
+            </thead>
+            <tbody>
+              {hubMembers.map((m) => (
+                <tr key={m.id}>
+                  <td>
+                    {m.avatar_url ? (
+                      <img src={m.avatar_url} alt="" style={{ width: 24, height: 24, borderRadius: '50%', verticalAlign: 'middle' }} />
+                    ) : (
+                      <span style={{ display: 'inline-block', width: 24, height: 24, borderRadius: '50%', background: '#dee2e6', textAlign: 'center', lineHeight: '24px', fontSize: 12 }}>?</span>
+                    )}
+                  </td>
+                  <td className="mono">{m.student_id || '-'}</td>
+                  <td>{m.real_name || '-'}</td>
+                  <td>{m.display_name || m.username || '-'}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+          {hubMembers.length === 0 && (
+            <p className="empty-msg">部員データがありません。Hub連携設定から同期してください。</p>
+          )}
+        </div>
+      </div>
+    )
+  }
+
   if (page === 'students') {
     return (
       <div className="app">
         <header className="scan-header">
           <button className="back-btn" onClick={handleBack}>← 戻る</button>
-          <h1>学生一覧</h1>
+          <h1>学生証一覧</h1>
         </header>
 
         <div className="students-list">

@@ -505,6 +505,9 @@ def main():
     def show_students():
         emit("navigate", {"page": "students"})
 
+    def show_members():
+        emit("navigate", {"page": "members"})
+
     def show_home():
         emit("navigate", {"page": "session-select"})
 
@@ -514,7 +517,8 @@ def main():
     menu = [
         Menu('表示', [
             MenuAction('セッション一覧', show_home),
-            MenuAction('学生一覧', show_students),
+            MenuAction('学生証一覧', show_students),
+            MenuAction('部員一覧', show_members),
             MenuAction('Hub連携設定', show_hub_settings),
         ]),
     ]
