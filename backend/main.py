@@ -20,7 +20,15 @@ import nfc
 import nfc.tag.tt3
 import jaconv
 
+import urllib.request
+import urllib.error
+
 TOUCH_COOLDOWN = 2.0
+
+# Hub設定ファイルパス
+def _get_hub_config_path():
+    return os.path.join(_get_data_dir(), "hub_config.json")
+
 
 # pywebview ウィンドウへの参照
 window = None
@@ -75,8 +83,18 @@ def init_db():
             updated_at TEXT DEFAULT (datetime('now', 'localtime'))
         )"""
     )
-    # 既存DBへのマイグレーション: students テーブルの card_uid に UNIQUE 制約追加
-    # （既存テーブルの制約変更はALTERでできないため、新規作成時のみ有効）
+    conn.execute(
+        """CREATE TABLE IF NOT EXISTS members (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            discord_id TEXT NOT NULL UNIQUE,
+            username TEXT,
+            display_name TEXT,
+            avatar_url TEXT,
+            real_name TEXT,
+            student_id TEXT,
+            synced_at TEXT DEFAULT (datetime('now', 'localtime'))
+        )"""
+    )
 
     # 既存DBへのマイグレーション: note カラム追加
     try:
@@ -182,6 +200,111 @@ class Api:
         conn.commit()
         conn.close()
         return {"status": "updated"}
+
+    # --- Hub連携 ---
+
+    def get_hub_config(self):
+        """Hub設定を読み込む"""
+        path = _get_hub_config_path()
+        if os.path.exists(path):
+            with open(path, "r") as f:
+                return json.load(f)
+        return {"url": "", "api_key": ""}
+
+    def save_hub_config(self, url, api_key):
+        """Hub設定を保存する"""
+        path = _get_hub_config_path()
+        with open(path, "w") as f:
+            json.dump({"url": url.rstrip("/"), "api_key": api_key}, f)
+        return {"status": "saved"}
+
+    def sync_members(self):
+        """JyoginHubから部員一覧を取得してmembersテーブルに保存"""
+        config = self.get_hub_config()
+        if not config["url"] or not config["api_key"]:
+            return {"status": "error", "message": "Hub設定が未登録です"}
+
+        try:
+            req = urllib.request.Request(
+                f"{config['url']}/api/hub/members",
+                headers={"Authorization": f"Bearer {config['api_key']}"},
+            )
+            with urllib.request.urlopen(req, timeout=30) as res:
+                data = json.loads(res.read().decode("utf-8"))
+        except urllib.error.HTTPError as e:
+            return {"status": "error", "message": f"HTTP {e.code}"}
+        except Exception as e:
+            return {"status": "error", "message": str(e)}
+
+        members = data.get("members", [])
+        conn = sqlite3.connect(DB_PATH)
+        for m in members:
+            conn.execute(
+                """INSERT INTO members (discord_id, username, display_name, avatar_url, real_name, student_id, synced_at)
+                   VALUES (?, ?, ?, ?, ?, ?, datetime('now', 'localtime'))
+                   ON CONFLICT(discord_id) DO UPDATE SET
+                     username = excluded.username,
+                     display_name = excluded.display_name,
+                     avatar_url = excluded.avatar_url,
+                     real_name = excluded.real_name,
+                     student_id = excluded.student_id,
+                     synced_at = datetime('now', 'localtime')""",
+                (m.get("discord_id"), m.get("username"), m.get("display_name"),
+                 m.get("avatar_url"), m.get("real_name"), m.get("student_id")),
+            )
+        conn.commit()
+        conn.close()
+        return {"status": "synced", "count": len(members)}
+
+    def get_members(self):
+        """ローカルのmembersテーブルから部員一覧を返す"""
+        conn = sqlite3.connect(DB_PATH)
+        conn.row_factory = sqlite3.Row
+        rows = conn.execute("SELECT * FROM members ORDER BY student_id").fetchall()
+        conn.close()
+        return [dict(r) for r in rows]
+
+    def sync_attendances(self, session_id):
+        """出席データをJyoginHubにアップロード"""
+        config = self.get_hub_config()
+        if not config["url"] or not config["api_key"]:
+            return {"status": "error", "message": "Hub設定が未登録です"}
+
+        conn = sqlite3.connect(DB_PATH)
+        conn.row_factory = sqlite3.Row
+        session = conn.execute("SELECT * FROM sessions WHERE id = ?", (session_id,)).fetchone()
+        if not session:
+            conn.close()
+            return {"status": "error", "message": "セッションが見つかりません"}
+
+        rows = conn.execute(
+            "SELECT student_id, student_name, card_uid, note, scanned_at FROM attendances WHERE session_id = ?",
+            (session_id,),
+        ).fetchall()
+        conn.close()
+
+        payload = json.dumps({
+            "session_name": session["name"],
+            "attendances": [dict(r) for r in rows],
+        }).encode("utf-8")
+
+        try:
+            req = urllib.request.Request(
+                f"{config['url']}/api/hub/attendances",
+                data=payload,
+                headers={
+                    "Authorization": f"Bearer {config['api_key']}",
+                    "Content-Type": "application/json",
+                },
+                method="POST",
+            )
+            with urllib.request.urlopen(req, timeout=30) as res:
+                result = json.loads(res.read().decode("utf-8"))
+            return result
+        except urllib.error.HTTPError as e:
+            return {"status": "error", "message": f"HTTP {e.code}"}
+        except Exception as e:
+            return {"status": "error", "message": str(e)}
 
     def export_csv(self, session_id):
         """出席データをCSVとしてエクスポート（ファイル保存ダイアログ）"""
@@ -385,10 +508,14 @@ def main():
     def show_home():
         emit("navigate", {"page": "session-select"})
 
+    def show_hub_settings():
+        emit("navigate", {"page": "hub-settings"})
+
     menu = [
         Menu('表示', [
             MenuAction('セッション一覧', show_home),
             MenuAction('学生一覧', show_students),
+            MenuAction('Hub連携設定', show_hub_settings),
         ]),
     ]
 

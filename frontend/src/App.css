@@ -357,3 +357,68 @@ h1 {
   color: #adb5bd;
   padding: 2rem 0;
 }
+
+/* Hub連携設定 */
+.hub-settings {
+  text-align: left;
+  padding: 0.5rem 0;
+}
+
+.hub-field {
+  margin-bottom: 1rem;
+}
+
+.hub-field label {
+  display: block;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: #495057;
+  margin-bottom: 0.3rem;
+}
+
+.hub-field input {
+  width: 100%;
+  padding: 0.5rem 0.75rem;
+  border: 1px solid #ced4da;
+  border-radius: 6px;
+  font-size: 0.9rem;
+  box-sizing: border-box;
+}
+
+.hub-actions {
+  display: flex;
+  gap: 0.5rem;
+  margin-bottom: 1rem;
+}
+
+.hub-actions button {
+  flex: 1;
+  padding: 0.5rem;
+  border: none;
+  border-radius: 6px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  cursor: pointer;
+  background: #228be6;
+  color: white;
+}
+
+.hub-actions button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.hub-msg {
+  font-size: 0.85rem;
+  color: #228be6;
+  margin-bottom: 1rem;
+}
+
+.hub-members {
+  margin-top: 1rem;
+}
+
+.hub-members h2 {
+  font-size: 0.95rem;
+  margin-bottom: 0.5rem;
+}
