@@ -50,14 +50,11 @@ if sys.platform == 'win32':
         from pythonnet import load
         load("coreclr")
 
-# デバッグ: winforms インポートの実際のエラーを確認
-try:
+# Windows: pywebview に必要な .NET アセンブリを事前ロード
+if sys.platform == 'win32':
     import clr
-    print("[DEBUG] clr imported successfully")
     clr.AddReference("System.Windows.Forms")
-    print("[DEBUG] System.Windows.Forms loaded successfully")
-except Exception as e:
-    print(f"[DEBUG] winforms import error: {type(e).__name__}: {e}")
+    clr.AddReference("Microsoft.Win32.SystemEvents")
 
 import webview
 from webview.menu import Menu, MenuAction
