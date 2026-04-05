@@ -32,10 +32,19 @@ jobs:
 
       - uses: actions/setup-python@v5
         with:
-          python-version: '3.12'
+          python-version: '3.11'
 
       - name: Install Python dependencies
-        run: pip install pywebview pythonnet nfcpy jaconv pyinstaller
+        shell: bash
+        run: |
+          pip install --upgrade pip
+          pip install \
+            "pywebview==4.4.1" \
+            "pythonnet==3.0.3" \
+            "clr-loader==0.2.7" \
+            "nfcpy==1.0.4" \
+            "jaconv==0.4.0" \
+            "pyinstaller==6.16.0"
 
       - name: Install libusb (macOS)
         if: runner.os == 'macOS'
@@ -62,7 +71,7 @@ jobs:
         env:
           APP_VERSION: ${{ steps.vars.outputs.version }}
           APP_ICON: ${{ steps.vars.outputs.icon }}
-        run: pyinstaller -y Jyogin.spec
+        run: pyinstaller --clean -y Jyogin.spec
 
       - name: Create DMG (macOS)
         if: runner.os == 'macOS'
