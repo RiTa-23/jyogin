@@ -170,7 +170,10 @@ function App() {
   if (page === 'session-select') {
     return (
       <div className="app">
-        <h1>NFC 出席確認</h1>
+        <div className="app-title">
+          <img src="/JyogiN.png" alt="JyogiN" className="app-logo" />
+          <h1>NFC 出席確認</h1>
+        </div>
 
         <div className="session-create">
           <input
