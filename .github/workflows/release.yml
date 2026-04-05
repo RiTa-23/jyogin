@@ -54,6 +54,7 @@ jobs:
           pip install \
             "pywebview==4.4.1" \
             "pythonnet==3.0.5" \
+            "clr-loader==0.2.7.post0" \
             "nfcpy==1.0.4" \
             "jaconv==0.4.0" \
             "pyinstaller==6.16.0"

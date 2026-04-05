@@ -14,22 +14,17 @@ import sys
 import threading
 import time
 
-# Windows: pythonnet ランタイム初期化（netfx -> coreclr フォールバック）
+# Windows: pythonnet ランタイム初期化（coreclr 固定）
 WINDOWS_GUI = 'edgechromium'
 if sys.platform == 'win32':
+    os.environ.setdefault('PYTHONNET_RUNTIME', 'coreclr')
     try:
         from pythonnet import load as _load_pythonnet_runtime
 
-        try:
-            _load_pythonnet_runtime("netfx")
-            print("[INFO] pythonnet runtime: netfx")
-        except Exception as netfx_err:
-            print(f"[WARN] pythonnet netfx 初期化失敗: {netfx_err}")
-            _load_pythonnet_runtime("coreclr")
-            print("[INFO] pythonnet runtime: coreclr")
+        _load_pythonnet_runtime("coreclr")
+        print("[INFO] pythonnet runtime: coreclr")
     except Exception as runtime_err:
-        WINDOWS_GUI = None
-        print(f"[WARN] pythonnet 初期化失敗。Windows GUIを自動選択に切替: {runtime_err}")
+        print(f"[WARN] pythonnet coreclr 初期化失敗: {runtime_err}")
 
 import webview
 from webview.menu import Menu, MenuAction
