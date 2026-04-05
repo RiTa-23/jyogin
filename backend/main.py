@@ -410,6 +410,13 @@ def emit(event, data):
     )
 
 
+def _format_nfc_error(error: Exception) -> str:
+    message = str(error)
+    if "LIBUSB_ERROR_NOT_SUPPORTED" in message:
+        return "NFCリーダーに接続できません（WindowsのUSBドライバが未対応）。ZadigでWinUSBドライバを設定してください。"
+    return message
+
+
 def nfc_loop():
     """NFC 読み取りループ（別スレッド）"""
     last_touch = 0
@@ -467,7 +474,7 @@ def nfc_loop():
         except KeyboardInterrupt:
             break
         except Exception as e:
-            emit("nfc:status", {"status": "error", "message": str(e)})
+            emit("nfc:status", {"status": "error", "message": _format_nfc_error(e)})
             time.sleep(2)
 
 
