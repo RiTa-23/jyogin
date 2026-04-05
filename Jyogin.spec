@@ -4,8 +4,16 @@ from PyInstaller.utils.hooks import collect_submodules
 
 VERSION = os.environ.get('APP_VERSION', '0.0.0')
 
+import sys
+
 hiddenimports = []
 hiddenimports += collect_submodules('nfc')
+
+# Windows: pywebview が pythonnet/.NET を使うため
+if sys.platform == 'win32':
+    hiddenimports += collect_submodules('pythonnet')
+    hiddenimports += collect_submodules('clr_loader')
+    hiddenimports += ['clr', 'webview.platforms.winforms']
 
 a = Analysis(
     ['backend/main.py'],
