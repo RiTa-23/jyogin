@@ -53,8 +53,7 @@ jobs:
           pip install --upgrade pip
           pip install \
             "pywebview==4.4.1" \
-            "pythonnet==3.0.3" \
-            "clr-loader==0.2.7.post0" \
+            "pythonnet==3.0.5" \
             "nfcpy==1.0.4" \
             "jaconv==0.4.0" \
             "pyinstaller==6.16.0"
@@ -79,6 +78,10 @@ jobs:
       - name: Debug pythonnet location (Windows)
         if: runner.os == 'Windows'
         run: python -c "import pythonnet; print(pythonnet.__file__); import os; d=os.path.dirname(pythonnet.__file__); print(os.listdir(d)); r=os.path.join(d,'runtime'); print(os.listdir(r) if os.path.isdir(r) else 'no runtime dir')"
+
+      - name: Debug pythonnet versions (Windows)
+        if: runner.os == 'Windows'
+        run: python -c "import importlib.metadata as m; print('pythonnet', m.version('pythonnet')); print('clr-loader', m.version('clr-loader'))"
 
       - name: Build app
         env:
