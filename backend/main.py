@@ -25,8 +25,19 @@ TOUCH_COOLDOWN = 2.0
 window = None
 window_ready = threading.Event()
 
-# DB パス（アプリと同じディレクトリに保存）
-DB_PATH = os.path.join(os.path.dirname(__file__), "jyogin.db")
+# DB パス（OSごとの標準データディレクトリに保存）
+def _get_data_dir():
+    if sys.platform == "darwin":
+        base = os.path.join(os.path.expanduser("~"), "Library", "Application Support")
+    elif sys.platform == "win32":
+        base = os.environ.get("APPDATA", os.path.expanduser("~"))
+    else:
+        base = os.environ.get("XDG_DATA_HOME", os.path.join(os.path.expanduser("~"), ".local", "share"))
+    data_dir = os.path.join(base, "JyogiN")
+    os.makedirs(data_dir, exist_ok=True)
+    return data_dir
+
+DB_PATH = os.path.join(_get_data_dir(), "jyogin.db")
 
 
 def init_db():
