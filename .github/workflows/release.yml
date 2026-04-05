@@ -53,8 +53,7 @@ jobs:
           pip install --upgrade pip
           pip install \
             "pywebview==4.4.1" \
-            "pythonnet==3.0.5" \
-            "clr-loader==0.2.7.post0" \
+            "PySide6==6.7.2" \
             "nfcpy==1.0.4" \
             "jaconv==0.4.0" \
             "pyinstaller==6.16.0"
@@ -76,13 +75,13 @@ jobs:
             echo "icon=frontend/public/JyogiN.ico" >> "$GITHUB_OUTPUT"
           fi
 
-      - name: Debug pythonnet location (Windows)
+      - name: Debug Qt backend package (Windows)
         if: runner.os == 'Windows'
-        run: python -c "import pythonnet; print(pythonnet.__file__); import os; d=os.path.dirname(pythonnet.__file__); print(os.listdir(d)); r=os.path.join(d,'runtime'); print(os.listdir(r) if os.path.isdir(r) else 'no runtime dir')"
+        run: python -c "import PySide6, os; print('PySide6', PySide6.__file__); print('dir', os.path.dirname(PySide6.__file__))"
 
-      - name: Debug pythonnet versions (Windows)
+      - name: Debug Windows Python package versions
         if: runner.os == 'Windows'
-        run: python -c "import importlib.metadata as m; print('pythonnet', m.version('pythonnet')); print('clr-loader', m.version('clr-loader'))"
+        run: python -c "import importlib.metadata as m; print('pywebview', m.version('pywebview')); print('PySide6', m.version('PySide6'))"
 
       - name: Build app
         env:

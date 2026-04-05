@@ -14,17 +14,15 @@ import sys
 import threading
 import time
 
-# Windows: pythonnet ランタイム初期化（coreclr 固定）
-WINDOWS_GUI = 'edgechromium'
+# Windows: Qt backend を使用（pythonnet/.NET 依存を回避）
+WINDOWS_GUI = 'qt'
 if sys.platform == 'win32':
-    os.environ.setdefault('PYTHONNET_RUNTIME', 'coreclr')
     try:
-        from pythonnet import load as _load_pythonnet_runtime
-
-        _load_pythonnet_runtime("coreclr")
-        print("[INFO] pythonnet runtime: coreclr")
-    except Exception as runtime_err:
-        print(f"[WARN] pythonnet coreclr 初期化失敗: {runtime_err}")
+        import PySide6  # noqa: F401
+        print("[INFO] Windows GUI backend: qt (PySide6)")
+    except Exception as qt_err:
+        WINDOWS_GUI = None
+        print(f"[WARN] PySide6 が見つからないため GUI 自動選択にフォールバック: {qt_err}")
 
 import webview
 from webview.menu import Menu, MenuAction
