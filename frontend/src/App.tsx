@@ -149,8 +149,6 @@ function App() {
           const config = await api.get_hub_config()
           setHubUrl(config.url)
           setHubApiKey(config.api_key)
-          const members = await api.get_members()
-          setHubMembers(members)
         }
       }
     }
@@ -206,28 +204,28 @@ function App() {
     setPage('session-select')
   }
 
+  const handleSyncMembers = async () => {
+    const api = window.pywebview?.api
+    if (!api) return
+    setHubLoading(true)
+    setHubMsg('')
+    const result = await api.sync_members()
+    if (result.status === 'synced') {
+      setHubMsg(`${result.count}名の部員データを同期しました`)
+      const members = await api.get_members()
+      setHubMembers(members)
+    } else {
+      setHubMsg(`エラー: ${result.message}`)
+    }
+    setHubLoading(false)
+  }
+
   if (page === 'hub-settings') {
     const handleSaveConfig = async () => {
       const api = window.pywebview?.api
       if (!api) return
       await api.save_hub_config(hubUrl, hubApiKey)
       setHubMsg('設定を保存しました')
-    }
-
-    const handleSyncMembers = async () => {
-      const api = window.pywebview?.api
-      if (!api) return
-      setHubLoading(true)
-      setHubMsg('')
-      const result = await api.sync_members()
-      if (result.status === 'synced') {
-        setHubMsg(`${result.count}名の部員データを同期しました`)
-        const members = await api.get_members()
-        setHubMembers(members)
-      } else {
-        setHubMsg(`エラー: ${result.message}`)
-      }
-      setHubLoading(false)
     }
 
     return (
@@ -258,35 +256,8 @@ function App() {
           </div>
           <div className="hub-actions">
             <button onClick={handleSaveConfig}>設定を保存</button>
-            <button onClick={handleSyncMembers} disabled={hubLoading || !hubUrl || !hubApiKey}>
-              {hubLoading ? '同期中...' : '部員データを同期'}
-            </button>
           </div>
           {hubMsg && <p className="hub-msg">{hubMsg}</p>}
-
-          {hubMembers.length > 0 && (
-            <div className="hub-members">
-              <h2>同期済み部員（{hubMembers.length}名）</h2>
-              <table className="students-table">
-                <thead>
-                  <tr>
-                    <th>Discord名</th>
-                    <th>本名</th>
-                    <th>学籍番号</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {hubMembers.map((m) => (
-                    <tr key={m.id}>
-                      <td>{m.display_name || m.username || '-'}</td>
-                      <td>{m.real_name || '-'}</td>
-                      <td className="mono">{m.student_id || '-'}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          )}
         </div>
       </div>
     )
@@ -301,6 +272,12 @@ function App() {
         </header>
 
         <div className="students-list">
+          <div className="hub-actions">
+            <button onClick={handleSyncMembers} disabled={hubLoading}>
+              {hubLoading ? '同期中...' : '部員データを同期'}
+            </button>
+          </div>
+          {hubMsg && <p className="hub-msg">{hubMsg}</p>}
           <p className="students-count">{hubMembers.length}名</p>
           <table className="students-table">
             <thead>
