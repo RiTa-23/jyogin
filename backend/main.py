@@ -405,14 +405,19 @@ def read_fitcard(tag):
         bcname = nfc.tag.tt3.BlockCode(1, service=0)
         data = tag.read_without_encryption([sc], [bcsid, bcname])
 
-        student_id = data[2:9].decode("utf-8").strip()
-        name_hankaku = data[16:32].decode("shift_jis").strip().replace("\x00", "")
-        name_full = jaconv.h2z(name_hankaku, kana=True)
+        student_id, name_full = _decode_fitcard_payload(data)
         print(f"[DEBUG] Student ID: {student_id}, Name: {name_full}")
         return student_id, name_full
     except Exception as e:
         print(f"[ERROR] 学生証読み取りエラー: {e}")
         return None, None
+
+
+def _decode_fitcard_payload(data: bytes):
+    student_id = data[2:9].decode("utf-8", errors="ignore").strip()
+    name_hankaku = data[16:32].decode("shift_jis", errors="ignore").strip().replace("\x00", "")
+    name_full = jaconv.h2z(name_hankaku, kana=True)
+    return student_id, name_full
 
 
 
@@ -453,6 +458,66 @@ def _pcsc_get_uid(conn):
     return ''.join(f'{byte:02X}' for byte in data)
 
 
+def _pcsc_read_fitcard_by_uid(conn, uid_hex: str):
+    try:
+        idm = bytes.fromhex(uid_hex)
+    except ValueError:
+        return None, None
+
+    if len(idm) < 8:
+        return None, None
+    idm = idm[:8]
+
+    service_code = bytes([0x8B, 0x1A])
+    block_list = bytes([0x80, 0x00, 0x80, 0x01])
+    command_body = bytes([0x06]) + idm + bytes([0x01]) + service_code + bytes([0x02]) + block_list
+    command_with_len = bytes([len(command_body) + 1]) + command_body
+
+    apdu_candidates = [
+        [0xFF, 0x00, 0x00, 0x00, len(command_with_len), *command_with_len],
+        [0xFF, 0x00, 0x00, 0x00, len(command_body), *command_body],
+    ]
+
+    for apdu in apdu_candidates:
+        try:
+            response, sw1, sw2 = conn.transmit(apdu)
+        except Exception:
+            continue
+
+        if (sw1, sw2) != (0x90, 0x00) or not response:
+            continue
+
+        payload = bytes(response)
+        if len(payload) < 14:
+            continue
+
+        frame = payload
+        if payload[0] == len(payload):
+            frame = payload[1:]
+
+        if len(frame) < 13 or frame[0] != 0x07:
+            continue
+        if frame[1:9] != idm:
+            continue
+
+        status_flag_1 = frame[9]
+        status_flag_2 = frame[10]
+        if status_flag_1 != 0x00 or status_flag_2 != 0x00:
+            continue
+
+        block_count = frame[11]
+        block_data = frame[12:12 + block_count * 16]
+        if len(block_data) < 32:
+            continue
+
+        try:
+            return _decode_fitcard_payload(block_data[:32])
+        except Exception:
+            continue
+
+    return None, None
+
+
 def nfc_loop_pcsc_windows():
     """Windows専用: PC/SC 読み取りループ"""
     last_touch = 0.0
@@ -480,9 +545,8 @@ def nfc_loop_pcsc_windows():
                 student_name = existing["student_name"]
                 print(f"[DEBUG] PC/SC DB hit: {student_id} {student_name}")
             else:
-                student_id = None
-                student_name = None
-                print(f"[DEBUG] PC/SC new UID: {uid}")
+                student_id, student_name = _pcsc_read_fitcard_by_uid(conn, uid)
+                print(f"[DEBUG] PC/SC new UID: {uid} / student: {student_id} {student_name}")
 
             emit("nfc:read", {
                 "card_uid": uid,
