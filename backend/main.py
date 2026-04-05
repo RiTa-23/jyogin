@@ -16,8 +16,32 @@ import time
 
 # Windows: pythonnet を coreclr ランタイムで初期化
 if sys.platform == 'win32':
+    import glob
     from pythonnet import load
-    load("coreclr")
+
+    # .NET Desktop Runtime のパスを検出
+    dotnet_root = os.environ.get("DOTNET_ROOT", r"C:\Program Files\dotnet")
+    desktop_dirs = sorted(
+        glob.glob(os.path.join(dotnet_root, "shared", "Microsoft.WindowsDesktop.App", "*")),
+        reverse=True,
+    )
+    if desktop_dirs:
+        runtime_config = {
+            "runtimeOptions": {
+                "tfm": "net8.0",
+                "framework": {
+                    "name": "Microsoft.WindowsDesktop.App",
+                    "version": os.path.basename(desktop_dirs[0]),
+                },
+            }
+        }
+        import tempfile
+        config_path = os.path.join(tempfile.gettempdir(), "jyogin.runtimeconfig.json")
+        with open(config_path, "w") as f:
+            json.dump(runtime_config, f)
+        load("coreclr", runtime_config=config_path)
+    else:
+        load("coreclr")
 
 import webview
 from webview.menu import Menu, MenuAction
