@@ -122,6 +122,23 @@ h1 {
 .scan-header h1 {
   margin-bottom: 0;
   font-size: 1.3rem;
+  flex: 1;
+}
+
+.export-btn {
+  padding: 0.4rem 0.8rem;
+  background: #228be6;
+  color: white;
+  border: none;
+  border-radius: 6px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.export-btn:hover {
+  background: #1c7ed6;
 }
 
 .back-btn {

@@ -26,6 +26,7 @@ interface PyWebViewApi {
     card_uid: string
   ): Promise<{ status: 'recorded' | 'duplicate' }>
   update_note(attendance_id: number, note: string): Promise<{ status: string }>
+  export_csv(session_id: number): Promise<{ status: string; path?: string }>
 }
 
 interface Window {
