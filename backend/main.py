@@ -44,7 +44,7 @@ if sys.platform == 'win32':
         }
         with open(config_path, "w") as f:
             json.dump(runtime_config, f)
-        rt = get_coreclr(config_path)
+        rt = get_coreclr(runtime_config=config_path)
         set_runtime(rt)
     else:
         from pythonnet import load
