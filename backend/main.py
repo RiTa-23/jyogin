@@ -22,10 +22,14 @@ if sys.platform == 'win32':
 
     # .NET Desktop Runtime のパスを検出
     dotnet_root = os.environ.get("DOTNET_ROOT", r"C:\Program Files\dotnet")
-    desktop_dirs = sorted(
+    all_desktop_dirs = sorted(
         glob.glob(os.path.join(dotnet_root, "shared", "Microsoft.WindowsDesktop.App", "*")),
         reverse=True,
     )
+    # .NET 8.x を優先（9.x は ContextMenu 廃止で pywebview と非互換）
+    desktop_dirs = [d for d in all_desktop_dirs if os.path.basename(d).startswith("8.")]
+    if not desktop_dirs:
+        desktop_dirs = all_desktop_dirs
     if desktop_dirs:
         # アプリ実行ディレクトリに runtimeconfig.json を作成
         if getattr(sys, "_MEIPASS", None):
