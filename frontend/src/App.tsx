@@ -217,6 +217,23 @@ function App() {
       <header className="scan-header">
         <button className="back-btn" onClick={handleBack}>← 戻る</button>
         <h1>{activeSession?.name}</h1>
+        <button
+          className="export-btn"
+          onClick={async () => {
+            const api = window.pywebview?.api
+            if (!api || !activeSession) return
+            try {
+              const result = await api.export_csv(activeSession.id)
+              if (result.status === 'error') {
+                alert(`エクスポート失敗: ${result.message}`)
+              }
+            } catch (e) {
+              alert(`エクスポート失敗: ${e}`)
+            }
+          }}
+        >
+          CSV出力
+        </button>
       </header>
 
       <div className={`status ${status}`}>

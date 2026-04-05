@@ -5,6 +5,8 @@ pywebview で React フロントエンドを表示し、
 バックグラウンドスレッドで NFC を読み取る。
 """
 
+import csv
+import io
 import json
 import os
 import sqlite3
@@ -23,8 +25,19 @@ TOUCH_COOLDOWN = 2.0
 window = None
 window_ready = threading.Event()
 
-# DB パス（アプリと同じディレクトリに保存）
-DB_PATH = os.path.join(os.path.dirname(__file__), "jyogin.db")
+# DB パス（OSごとの標準データディレクトリに保存）
+def _get_data_dir():
+    if sys.platform == "darwin":
+        base = os.path.join(os.path.expanduser("~"), "Library", "Application Support")
+    elif sys.platform == "win32":
+        base = os.environ.get("APPDATA", os.path.expanduser("~"))
+    else:
+        base = os.environ.get("XDG_DATA_HOME", os.path.join(os.path.expanduser("~"), ".local", "share"))
+    data_dir = os.path.join(base, "JyogiN")
+    os.makedirs(data_dir, exist_ok=True)
+    return data_dir
+
+DB_PATH = os.path.join(_get_data_dir(), "jyogin.db")
 
 
 def init_db():
@@ -124,6 +137,63 @@ class Api:
         conn.commit()
         conn.close()
         return {"status": "updated"}
+
+    def export_csv(self, session_id):
+        """出席データをCSVとしてエクスポート（ファイル保存ダイアログ）"""
+        conn = sqlite3.connect(DB_PATH)
+        conn.row_factory = sqlite3.Row
+        session = conn.execute(
+            "SELECT * FROM sessions WHERE id = ?", (session_id,)
+        ).fetchone()
+        rows = conn.execute(
+            "SELECT * FROM attendances WHERE session_id = ? ORDER BY scanned_at",
+            (session_id,),
+        ).fetchall()
+        conn.close()
+
+        if not session:
+            return {"status": "error", "message": "セッションが見つかりません"}
+
+        def sanitize_cell(value):
+            """スプレッドシートの数式インジェクションを防ぐ"""
+            if value is None:
+                return ""
+            s = str(value)
+            if s and s[0] in ("=", "+", "-", "@"):
+                return "'" + s
+            return s
+
+        # CSV文字列を生成
+        output = io.StringIO()
+        writer = csv.writer(output)
+        writer.writerow(["学籍番号", "氏名", "スキャン日時", "備考"])
+        for r in rows:
+            writer.writerow([
+                sanitize_cell(r["student_id"]),
+                sanitize_cell(r["student_name"]),
+                sanitize_cell(r["scanned_at"]),
+                sanitize_cell(r["note"]),
+            ])
+        csv_text = output.getvalue()
+
+        # ファイル保存ダイアログ
+        save_path = window.create_file_dialog(
+            webview.SAVE_DIALOG,
+            save_filename=f"{session['name']}.csv",
+            file_types=("CSV ファイル (*.csv)",),
+        )
+
+        if not save_path:
+            return {"status": "cancelled"}
+
+        path = save_path if isinstance(save_path, str) else save_path[0]
+        try:
+            with open(path, "w", encoding="utf-8-sig", newline="") as f:
+                f.write(csv_text)
+        except OSError as e:
+            return {"status": "error", "message": str(e)}
+
+        return {"status": "saved", "path": path}
 
 
 def read_fitcard(tag):
@@ -237,7 +307,7 @@ def main():
 
     if os.environ.get("DEV"):
         window = webview.create_window(
-            "NFC 入退室管理",
+            "NFC 出席確認",
             url=url,
             js_api=api,
             width=480,
