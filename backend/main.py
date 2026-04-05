@@ -26,11 +26,25 @@ if sys.platform == 'win32':
         WINDOWS_GUI = None
         print(f"[WARN] PySide6/qtpy が見つからないため GUI 自動選択にフォールバック: {qt_err}")
 
+PCSC_AVAILABLE = False
+NoCardException = Exception
+CardConnectionException = Exception
+pcsc_readers = None
+if sys.platform == 'win32':
+    try:
+        from smartcard.System import readers as pcsc_readers
+        from smartcard.Exceptions import NoCardException, CardConnectionException
+        PCSC_AVAILABLE = True
+        print("[INFO] Windows NFC backend: PC/SC (pyscard)")
+    except Exception as pcsc_err:
+        print(f"[WARN] pyscard 未導入のため PC/SC が使えません: {pcsc_err}")
+
 import webview
 from webview.menu import Menu, MenuAction
 
-import nfc
-import nfc.tag.tt3
+if sys.platform != 'win32':
+    import nfc
+    import nfc.tag.tt3
 import jaconv
 
 import urllib.request
@@ -414,11 +428,87 @@ def _format_nfc_error(error: Exception) -> str:
     message = str(error)
     if "LIBUSB_ERROR_NOT_SUPPORTED" in message:
         return "NFCリーダーに接続できません（WindowsのUSBドライバが未対応）。ZadigでWinUSBドライバを設定してください。"
+    if "PC/SC が利用できません" in message:
+        return "WindowsのNFC読取に必要なコンポーネントが見つかりません。アプリを再インストールしてください。"
+    if "PC/SC リーダーが見つかりません" in message:
+        return "NFCリーダーが見つかりません。接続を確認してください。"
     return message
+
+
+def _pcsc_connect_first_reader():
+    if not PCSC_AVAILABLE or not pcsc_readers:
+        raise RuntimeError("PC/SC が利用できません")
+    found_readers = pcsc_readers()
+    if not found_readers:
+        raise RuntimeError("PC/SC リーダーが見つかりません")
+    conn = found_readers[0].createConnection()
+    conn.connect()
+    return conn
+
+
+def _pcsc_get_uid(conn):
+    data, sw1, sw2 = conn.transmit([0xFF, 0xCA, 0x00, 0x00, 0x00])
+    if (sw1, sw2) != (0x90, 0x00):
+        raise RuntimeError(f"UID取得失敗: SW={sw1:02X}{sw2:02X}")
+    return ''.join(f'{byte:02X}' for byte in data)
+
+
+def nfc_loop_pcsc_windows():
+    """Windows専用: PC/SC 読み取りループ"""
+    last_touch = 0.0
+    last_uid = None
+    emit("nfc:status", {"status": "ready"})
+
+    while True:
+        try:
+            conn = _pcsc_connect_first_reader()
+            uid = _pcsc_get_uid(conn)
+            now = time.time()
+
+            if uid == last_uid and now - last_touch < TOUCH_COOLDOWN:
+                time.sleep(0.3)
+                continue
+
+            last_uid = uid
+            last_touch = now
+
+            emit("nfc:status", {"status": "reading"})
+
+            existing = api.find_student_by_uid(uid)
+            if existing:
+                student_id = existing["student_id"]
+                student_name = existing["student_name"]
+                print(f"[DEBUG] PC/SC DB hit: {student_id} {student_name}")
+            else:
+                student_id = None
+                student_name = None
+                print(f"[DEBUG] PC/SC new UID: {uid}")
+
+            emit("nfc:read", {
+                "card_uid": uid,
+                "student_id": student_id,
+                "student_name": student_name,
+            })
+            emit("nfc:status", {"status": "done"})
+            time.sleep(0.4)
+        except KeyboardInterrupt:
+            break
+        except NoCardException:
+            time.sleep(0.2)
+        except CardConnectionException as e:
+            emit("nfc:status", {"status": "error", "message": _format_nfc_error(e)})
+            time.sleep(1.0)
+        except Exception as e:
+            emit("nfc:status", {"status": "error", "message": _format_nfc_error(e)})
+            time.sleep(1.0)
 
 
 def nfc_loop():
     """NFC 読み取りループ（別スレッド）"""
+    if sys.platform == 'win32':
+        nfc_loop_pcsc_windows()
+        return
+
     last_touch = 0
 
     def on_connect(tag):

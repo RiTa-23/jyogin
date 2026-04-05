@@ -55,6 +55,7 @@ jobs:
             "pywebview==4.4.1" \
             "PySide6==6.7.2" \
             "qtpy==2.4.1" \
+            "pyscard==2.0.10" \
             "nfcpy==1.0.4" \
             "jaconv==0.4.0" \
             "pyinstaller==6.16.0"
@@ -82,7 +83,7 @@ jobs:
 
       - name: Debug Windows Python package versions
         if: runner.os == 'Windows'
-        run: python -c "import importlib.metadata as m; print('pywebview', m.version('pywebview')); print('PySide6', m.version('PySide6')); print('qtpy', m.version('qtpy'))"
+        run: python -c "import importlib.metadata as m; print('pywebview', m.version('pywebview')); print('PySide6', m.version('PySide6')); print('qtpy', m.version('qtpy')); print('pyscard', m.version('pyscard'))"
 
       - name: Build app
         env:
