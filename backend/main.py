@@ -14,6 +14,7 @@ import sys
 import threading
 import time
 import webview
+from webview.menu import Menu, MenuAction
 
 import nfc
 import nfc.tag.tt3
@@ -352,7 +353,20 @@ def main():
             height=640,
         )
 
-    webview.start(on_webview_loaded, debug=bool(os.environ.get("DEV")))
+    def show_students():
+        emit("navigate", {"page": "students"})
+
+    def show_home():
+        emit("navigate", {"page": "session-select"})
+
+    menu = [
+        Menu('表示', [
+            MenuAction('セッション一覧', show_home),
+            MenuAction('学生一覧', show_students),
+        ]),
+    ]
+
+    webview.start(on_webview_loaded, menu=menu, debug=bool(os.environ.get("DEV")))
 
 
 if __name__ == "__main__":

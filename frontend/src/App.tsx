@@ -2,7 +2,7 @@ import { useEffect, useState, useRef } from 'react'
 import './App.css'
 
 type NfcStatus = 'waiting' | 'ready' | 'reading' | 'done' | 'error'
-type Page = 'session-select' | 'scanning'
+type Page = 'session-select' | 'scanning' | 'students'
 
 interface NfcReadEvent {
   card_uid: string
@@ -52,6 +52,8 @@ function App() {
   const [newSessionName, setNewSessionName] = useState('')
   const [activeSession, setActiveSession] = useState<Session | null>(null)
   const [attendances, setAttendances] = useState<Attendance[]>([])
+
+  const [students, setStudents] = useState<Student[]>([])
 
   const [status, setStatus] = useState<NfcStatus>('waiting')
   const [lastRead, setLastRead] = useState<NfcReadEvent | null>(null)
@@ -118,13 +120,27 @@ function App() {
       setAttendances(list)
     }
 
+    const onNavigate = async (e: CustomEvent) => {
+      const targetPage = e.detail.page as Page
+      setPage(targetPage)
+      if (targetPage === 'students') {
+        const api = window.pywebview?.api
+        if (api) {
+          const list = await api.get_students()
+          setStudents(list)
+        }
+      }
+    }
+
     window.addEventListener('nfc:status', onStatus as unknown as EventListener)
     window.addEventListener('nfc:read', onRead as unknown as EventListener)
+    window.addEventListener('navigate', onNavigate as unknown as EventListener)
 
     return () => {
       clearTimeout(doneTimer)
       window.removeEventListener('nfc:status', onStatus as unknown as EventListener)
       window.removeEventListener('nfc:read', onRead as unknown as EventListener)
+      window.removeEventListener('navigate', onNavigate as unknown as EventListener)
     }
   }, [])
 
@@ -165,6 +181,42 @@ function App() {
     setAttendances([])
     setLastRead(null)
     setPage('session-select')
+  }
+
+  if (page === 'students') {
+    return (
+      <div className="app">
+        <header className="scan-header">
+          <button className="back-btn" onClick={handleBack}>← 戻る</button>
+          <h1>学生一覧</h1>
+        </header>
+
+        <div className="students-list">
+          <p className="students-count">登録数: {students.length}名</p>
+          <table className="students-table">
+            <thead>
+              <tr>
+                <th>学籍番号</th>
+                <th>氏名</th>
+                <th>登録日</th>
+              </tr>
+            </thead>
+            <tbody>
+              {students.map((s) => (
+                <tr key={s.id}>
+                  <td className="mono">{s.student_id}</td>
+                  <td>{s.student_name}</td>
+                  <td className="date">{s.created_at?.slice(0, 10)}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+          {students.length === 0 && (
+            <p className="empty-msg">まだ学生が登録されていません</p>
+          )}
+        </div>
+      </div>
+    )
   }
 
   if (page === 'session-select') {

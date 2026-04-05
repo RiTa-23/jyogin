@@ -14,7 +14,17 @@ interface Attendance {
   scanned_at: string
 }
 
+interface Student {
+  id: number
+  student_id: string
+  student_name: string
+  card_uid: string
+  created_at: string
+  updated_at: string
+}
+
 interface PyWebViewApi {
+  get_students(): Promise<Student[]>
   create_session(name: string): Promise<Session>
   get_sessions(): Promise<Session[]>
   delete_session(session_id: number): Promise<{ status: string }>
