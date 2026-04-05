@@ -8,6 +8,7 @@ on:
 jobs:
   build:
     strategy:
+      fail-fast: false
       matrix:
         include:
           - os: macos-latest
@@ -32,10 +33,32 @@ jobs:
 
       - uses: actions/setup-python@v5
         with:
-          python-version: '3.12'
+          python-version: '3.11'
 
-      - name: Install Python dependencies
-        run: pip install pywebview nfcpy jaconv pyinstaller
+      - name: Install Python dependencies (macOS)
+        if: runner.os == 'macOS'
+        shell: bash
+        run: |
+          pip install --upgrade pip
+          pip install \
+            "pywebview==4.4.1" \
+            "nfcpy==1.0.4" \
+            "jaconv==0.4.0" \
+            "pyinstaller==6.16.0"
+
+      - name: Install Python dependencies (Windows)
+        if: runner.os == 'Windows'
+        shell: bash
+        run: |
+          pip install --upgrade pip
+          pip install \
+            "pywebview==4.4.1" \
+            "PySide6==6.7.2" \
+            "qtpy==2.4.1" \
+            "pyscard==2.0.10" \
+            "nfcpy==1.0.4" \
+            "jaconv==0.4.0" \
+            "pyinstaller==6.16.0"
 
       - name: Install libusb (macOS)
         if: runner.os == 'macOS'
@@ -54,11 +77,19 @@ jobs:
             echo "icon=frontend/public/JyogiN.ico" >> "$GITHUB_OUTPUT"
           fi
 
+      - name: Debug Qt backend package (Windows)
+        if: runner.os == 'Windows'
+        run: python -c "import PySide6, os; print('PySide6', PySide6.__file__); print('dir', os.path.dirname(PySide6.__file__))"
+
+      - name: Debug Windows Python package versions
+        if: runner.os == 'Windows'
+        run: python -c "import importlib.metadata as m; print('pywebview', m.version('pywebview')); print('PySide6', m.version('PySide6')); print('qtpy', m.version('qtpy')); print('pyscard', m.version('pyscard'))"
+
       - name: Build app
         env:
           APP_VERSION: ${{ steps.vars.outputs.version }}
           APP_ICON: ${{ steps.vars.outputs.icon }}
-        run: pyinstaller -y Jyogin.spec
+        run: pyinstaller --clean -y Jyogin.spec
 
       - name: Create DMG (macOS)
         if: runner.os == 'macOS'

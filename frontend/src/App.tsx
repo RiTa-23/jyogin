@@ -2,7 +2,7 @@ import { useEffect, useState, useRef } from 'react'
 import './App.css'
 
 type NfcStatus = 'waiting' | 'ready' | 'reading' | 'done' | 'error'
-type Page = 'session-select' | 'scanning' | 'students'
+type Page = 'session-select' | 'scanning' | 'students' | 'members' | 'hub-settings'
 
 interface NfcReadEvent {
   card_uid: string
@@ -54,6 +54,12 @@ function App() {
   const [attendances, setAttendances] = useState<Attendance[]>([])
 
   const [students, setStudents] = useState<Student[]>([])
+
+  const [hubUrl, setHubUrl] = useState('')
+  const [hubApiKey, setHubApiKey] = useState('')
+  const [hubMembers, setHubMembers] = useState<Member[]>([])
+  const [hubMsg, setHubMsg] = useState('')
+  const [hubLoading, setHubLoading] = useState(false)
 
   const [status, setStatus] = useState<NfcStatus>('waiting')
   const [lastRead, setLastRead] = useState<NfcReadEvent | null>(null)
@@ -130,6 +136,21 @@ function App() {
           setStudents(list)
         }
       }
+      if (targetPage === 'members') {
+        const api = window.pywebview?.api
+        if (api) {
+          const members = await api.get_members()
+          setHubMembers(members)
+        }
+      }
+      if (targetPage === 'hub-settings') {
+        const api = window.pywebview?.api
+        if (api) {
+          const config = await api.get_hub_config()
+          setHubUrl(config.url)
+          setHubApiKey(config.api_key)
+        }
+      }
     }
 
     window.addEventListener('nfc:status', onStatus as unknown as EventListener)
@@ -183,12 +204,121 @@ function App() {
     setPage('session-select')
   }
 
+  const handleSyncMembers = async () => {
+    const api = window.pywebview?.api
+    if (!api) return
+    setHubLoading(true)
+    setHubMsg('')
+    const result = await api.sync_members()
+    if (result.status === 'synced') {
+      setHubMsg(`${result.count}名の部員データを同期しました`)
+      const members = await api.get_members()
+      setHubMembers(members)
+    } else {
+      setHubMsg(`エラー: ${result.message}`)
+    }
+    setHubLoading(false)
+  }
+
+  if (page === 'hub-settings') {
+    const handleSaveConfig = async () => {
+      const api = window.pywebview?.api
+      if (!api) return
+      await api.save_hub_config(hubUrl, hubApiKey)
+      setHubMsg('設定を保存しました')
+    }
+
+    return (
+      <div className="app">
+        <header className="scan-header">
+          <button className="back-btn" onClick={handleBack}>← 戻る</button>
+          <h1>Hub連携設定</h1>
+        </header>
+
+        <div className="hub-settings">
+          <div className="hub-field">
+            <label>JyoginHub URL</label>
+            <input
+              type="text"
+              placeholder="https://example.com"
+              value={hubUrl}
+              onChange={(e) => setHubUrl(e.target.value)}
+            />
+          </div>
+          <div className="hub-field">
+            <label>APIキー</label>
+            <input
+              type="password"
+              placeholder="jyogin_..."
+              value={hubApiKey}
+              onChange={(e) => setHubApiKey(e.target.value)}
+            />
+          </div>
+          <div className="hub-actions">
+            <button onClick={handleSaveConfig}>設定を保存</button>
+          </div>
+          {hubMsg && <p className="hub-msg">{hubMsg}</p>}
+        </div>
+      </div>
+    )
+  }
+
+  if (page === 'members') {
+    return (
+      <div className="app">
+        <header className="scan-header">
+          <button className="back-btn" onClick={handleBack}>← 戻る</button>
+          <h1>部員一覧</h1>
+        </header>
+
+        <div className="students-list">
+          <div className="hub-actions">
+            <button onClick={handleSyncMembers} disabled={hubLoading}>
+              {hubLoading ? '同期中...' : '部員データを同期'}
+            </button>
+          </div>
+          {hubMsg && <p className="hub-msg">{hubMsg}</p>}
+          <p className="students-count">{hubMembers.length}名</p>
+          <table className="students-table">
+            <thead>
+              <tr>
+                <th></th>
+                <th>Discord名</th>
+                <th>本名</th>
+                <th>学籍番号</th>
+              </tr>
+            </thead>
+            <tbody>
+              {hubMembers.map((m) => (
+                <tr key={m.id}>
+                  <td>
+                    {m.avatar_url ? (
+                      <img src={m.avatar_url} alt="" style={{ width: 24, height: 24, borderRadius: '50%', verticalAlign: 'middle' }} />
+                    ) : (
+                      <span style={{ display: 'inline-block', width: 24, height: 24, borderRadius: '50%', background: '#dee2e6', textAlign: 'center', lineHeight: '24px', fontSize: 12 }}>?</span>
+                    )}
+                  </td>
+                  <td>{m.display_name || m.username || '-'}</td>
+                  <td>{m.real_name || '-'}</td>
+                  <td className="mono">{m.student_id || '-'}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+          {hubMembers.length === 0 && (
+            <p className="empty-msg">部員データがありません。Hub連携設定から同期してください。</p>
+          )}
+        </div>
+      </div>
+    )
+  }
+
   if (page === 'students') {
     return (
       <div className="app">
         <header className="scan-header">
           <button className="back-btn" onClick={handleBack}>← 戻る</button>
-          <h1>学生一覧</h1>
+          <h1>学生証一覧</h1>
         </header>
 
         <div className="students-list">
@@ -289,6 +419,21 @@ function App() {
           }}
         >
           CSV出力
+        </button>
+        <button
+          className="export-btn"
+          onClick={async () => {
+            const api = window.pywebview?.api
+            if (!api || !activeSession) return
+            const result = await api.sync_attendances(activeSession.id)
+            if (result.status === 'synced') {
+              alert(`${result.count}件の出席データをHubに同期しました`)
+            } else {
+              alert(`同期失敗: ${result.message}`)
+            }
+          }}
+        >
+          Hub同期
         </button>
       </header>
 

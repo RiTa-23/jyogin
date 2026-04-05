@@ -13,14 +13,49 @@ import sqlite3
 import sys
 import threading
 import time
+
+# Windows: Qt backend を使用（pythonnet/.NET 依存を回避）
+WINDOWS_GUI = 'qt'
+if sys.platform == 'win32':
+    os.environ.setdefault('QT_API', 'pyside6')
+    try:
+        import PySide6  # noqa: F401
+        import qtpy  # noqa: F401
+        print("[INFO] Windows GUI backend: qt (PySide6)")
+    except Exception as qt_err:
+        WINDOWS_GUI = None
+        print(f"[WARN] PySide6/qtpy が見つからないため GUI 自動選択にフォールバック: {qt_err}")
+
+PCSC_AVAILABLE = False
+NoCardException = Exception
+CardConnectionException = Exception
+pcsc_readers = None
+if sys.platform == 'win32':
+    try:
+        from smartcard.System import readers as pcsc_readers
+        from smartcard.Exceptions import NoCardException, CardConnectionException
+        PCSC_AVAILABLE = True
+        print("[INFO] Windows NFC backend: PC/SC (pyscard)")
+    except Exception as pcsc_err:
+        print(f"[WARN] pyscard 未導入のため PC/SC が使えません: {pcsc_err}")
+
 import webview
 from webview.menu import Menu, MenuAction
 
-import nfc
-import nfc.tag.tt3
+if sys.platform != 'win32':
+    import nfc
+    import nfc.tag.tt3
 import jaconv
 
+import urllib.request
+import urllib.error
+
 TOUCH_COOLDOWN = 2.0
+
+# Hub設定ファイルパス
+def _get_hub_config_path():
+    return os.path.join(_get_data_dir(), "hub_config.json")
+
 
 # pywebview ウィンドウへの参照
 window = None
@@ -75,8 +110,18 @@ def init_db():
             updated_at TEXT DEFAULT (datetime('now', 'localtime'))
         )"""
     )
-    # 既存DBへのマイグレーション: students テーブルの card_uid に UNIQUE 制約追加
-    # （既存テーブルの制約変更はALTERでできないため、新規作成時のみ有効）
+    conn.execute(
+        """CREATE TABLE IF NOT EXISTS members (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            discord_id TEXT NOT NULL UNIQUE,
+            username TEXT,
+            display_name TEXT,
+            avatar_url TEXT,
+            real_name TEXT,
+            student_id TEXT,
+            synced_at TEXT DEFAULT (datetime('now', 'localtime'))
+        )"""
+    )
 
     # 既存DBへのマイグレーション: note カラム追加
     try:
@@ -183,6 +228,111 @@ class Api:
         conn.close()
         return {"status": "updated"}
 
+    # --- Hub連携 ---
+
+    def get_hub_config(self):
+        """Hub設定を読み込む"""
+        path = _get_hub_config_path()
+        if os.path.exists(path):
+            with open(path, "r") as f:
+                return json.load(f)
+        return {"url": "", "api_key": ""}
+
+    def save_hub_config(self, url, api_key):
+        """Hub設定を保存する"""
+        path = _get_hub_config_path()
+        with open(path, "w") as f:
+            json.dump({"url": url.rstrip("/"), "api_key": api_key}, f)
+        return {"status": "saved"}
+
+    def sync_members(self):
+        """JyoginHubから部員一覧を取得してmembersテーブルに保存"""
+        config = self.get_hub_config()
+        if not config["url"] or not config["api_key"]:
+            return {"status": "error", "message": "Hub設定が未登録です"}
+
+        try:
+            req = urllib.request.Request(
+                f"{config['url']}/api/hub/members",
+                headers={"Authorization": f"Bearer {config['api_key']}"},
+            )
+            with urllib.request.urlopen(req, timeout=30) as res:
+                data = json.loads(res.read().decode("utf-8"))
+        except urllib.error.HTTPError as e:
+            return {"status": "error", "message": f"HTTP {e.code}"}
+        except Exception as e:
+            return {"status": "error", "message": str(e)}
+
+        members = data.get("members", [])
+        conn = sqlite3.connect(DB_PATH)
+        for m in members:
+            conn.execute(
+                """INSERT INTO members (discord_id, username, display_name, avatar_url, real_name, student_id, synced_at)
+                   VALUES (?, ?, ?, ?, ?, ?, datetime('now', 'localtime'))
+                   ON CONFLICT(discord_id) DO UPDATE SET
+                     username = excluded.username,
+                     display_name = excluded.display_name,
+                     avatar_url = excluded.avatar_url,
+                     real_name = excluded.real_name,
+                     student_id = excluded.student_id,
+                     synced_at = datetime('now', 'localtime')""",
+                (m.get("discord_id"), m.get("username"), m.get("display_name"),
+                 m.get("avatar_url"), m.get("real_name"), m.get("student_id")),
+            )
+        conn.commit()
+        conn.close()
+        return {"status": "synced", "count": len(members)}
+
+    def get_members(self):
+        """ローカルのmembersテーブルから部員一覧を返す"""
+        conn = sqlite3.connect(DB_PATH)
+        conn.row_factory = sqlite3.Row
+        rows = conn.execute("SELECT * FROM members ORDER BY student_id").fetchall()
+        conn.close()
+        return [dict(r) for r in rows]
+
+    def sync_attendances(self, session_id):
+        """出席データをJyoginHubにアップロード"""
+        config = self.get_hub_config()
+        if not config["url"] or not config["api_key"]:
+            return {"status": "error", "message": "Hub設定が未登録です"}
+
+        conn = sqlite3.connect(DB_PATH)
+        conn.row_factory = sqlite3.Row
+        session = conn.execute("SELECT * FROM sessions WHERE id = ?", (session_id,)).fetchone()
+        if not session:
+            conn.close()
+            return {"status": "error", "message": "セッションが見つかりません"}
+
+        rows = conn.execute(
+            "SELECT student_id, student_name, card_uid, note, scanned_at FROM attendances WHERE session_id = ?",
+            (session_id,),
+        ).fetchall()
+        conn.close()
+
+        payload = json.dumps({
+            "session_name": session["name"],
+            "attendances": [dict(r) for r in rows],
+        }).encode("utf-8")
+
+        try:
+            req = urllib.request.Request(
+                f"{config['url']}/api/hub/attendances",
+                data=payload,
+                headers={
+                    "Authorization": f"Bearer {config['api_key']}",
+                    "Content-Type": "application/json",
+                },
+                method="POST",
+            )
+            with urllib.request.urlopen(req, timeout=30) as res:
+                result = json.loads(res.read().decode("utf-8"))
+            return result
+        except urllib.error.HTTPError as e:
+            return {"status": "error", "message": f"HTTP {e.code}"}
+        except Exception as e:
+            return {"status": "error", "message": str(e)}
+
     def export_csv(self, session_id):
         """出席データをCSVとしてエクスポート（ファイル保存ダイアログ）"""
         conn = sqlite3.connect(DB_PATH)
@@ -255,14 +405,19 @@ def read_fitcard(tag):
         bcname = nfc.tag.tt3.BlockCode(1, service=0)
         data = tag.read_without_encryption([sc], [bcsid, bcname])
 
-        student_id = data[2:9].decode("utf-8").strip()
-        name_hankaku = data[16:32].decode("shift_jis").strip().replace("\x00", "")
-        name_full = jaconv.h2z(name_hankaku, kana=True)
+        student_id, name_full = _decode_fitcard_payload(data)
         print(f"[DEBUG] Student ID: {student_id}, Name: {name_full}")
         return student_id, name_full
     except Exception as e:
         print(f"[ERROR] 学生証読み取りエラー: {e}")
         return None, None
+
+
+def _decode_fitcard_payload(data: bytes):
+    student_id = data[2:9].decode("utf-8", errors="ignore").strip()
+    name_hankaku = data[16:32].decode("shift_jis", errors="ignore").strip().replace("\x00", "")
+    name_full = jaconv.h2z(name_hankaku, kana=True)
+    return student_id, name_full
 
 
 
@@ -274,8 +429,150 @@ def emit(event, data):
     )
 
 
+def _format_nfc_error(error: Exception) -> str:
+    message = str(error)
+    if "LIBUSB_ERROR_NOT_SUPPORTED" in message:
+        return "NFCリーダーに接続できません（WindowsのUSBドライバが未対応）。ZadigでWinUSBドライバを設定してください。"
+    if "PC/SC が利用できません" in message:
+        return "WindowsのNFC読取に必要なコンポーネントが見つかりません。アプリを再インストールしてください。"
+    if "PC/SC リーダーが見つかりません" in message:
+        return "NFCリーダーが見つかりません。接続を確認してください。"
+    return message
+
+
+def _pcsc_connect_first_reader():
+    if not PCSC_AVAILABLE or not pcsc_readers:
+        raise RuntimeError("PC/SC が利用できません")
+    found_readers = pcsc_readers()
+    if not found_readers:
+        raise RuntimeError("PC/SC リーダーが見つかりません")
+    conn = found_readers[0].createConnection()
+    conn.connect()
+    return conn
+
+
+def _pcsc_get_uid(conn):
+    data, sw1, sw2 = conn.transmit([0xFF, 0xCA, 0x00, 0x00, 0x00])
+    if (sw1, sw2) != (0x90, 0x00):
+        raise RuntimeError(f"UID取得失敗: SW={sw1:02X}{sw2:02X}")
+    return ''.join(f'{byte:02X}' for byte in data)
+
+
+def _pcsc_read_fitcard_by_uid(conn, uid_hex: str):
+    try:
+        idm = bytes.fromhex(uid_hex)
+    except ValueError:
+        return None, None
+
+    if len(idm) < 8:
+        return None, None
+    idm = idm[:8]
+
+    service_code = bytes([0x8B, 0x1A])
+    block_list = bytes([0x80, 0x00, 0x80, 0x01])
+    command_body = bytes([0x06]) + idm + bytes([0x01]) + service_code + bytes([0x02]) + block_list
+    command_with_len = bytes([len(command_body) + 1]) + command_body
+
+    apdu_candidates = [
+        [0xFF, 0x00, 0x00, 0x00, len(command_with_len), *command_with_len],
+        [0xFF, 0x00, 0x00, 0x00, len(command_body), *command_body],
+    ]
+
+    for apdu in apdu_candidates:
+        try:
+            response, sw1, sw2 = conn.transmit(apdu)
+        except Exception:
+            continue
+
+        if (sw1, sw2) != (0x90, 0x00) or not response:
+            continue
+
+        payload = bytes(response)
+        if len(payload) < 14:
+            continue
+
+        frame = payload
+        if payload[0] == len(payload):
+            frame = payload[1:]
+
+        if len(frame) < 13 or frame[0] != 0x07:
+            continue
+        if frame[1:9] != idm:
+            continue
+
+        status_flag_1 = frame[9]
+        status_flag_2 = frame[10]
+        if status_flag_1 != 0x00 or status_flag_2 != 0x00:
+            continue
+
+        block_count = frame[11]
+        block_data = frame[12:12 + block_count * 16]
+        if len(block_data) < 32:
+            continue
+
+        try:
+            return _decode_fitcard_payload(block_data[:32])
+        except Exception:
+            continue
+
+    return None, None
+
+
+def nfc_loop_pcsc_windows():
+    """Windows専用: PC/SC 読み取りループ"""
+    last_touch = 0.0
+    last_uid = None
+    emit("nfc:status", {"status": "ready"})
+
+    while True:
+        try:
+            conn = _pcsc_connect_first_reader()
+            uid = _pcsc_get_uid(conn)
+            now = time.time()
+
+            if uid == last_uid and now - last_touch < TOUCH_COOLDOWN:
+                time.sleep(0.3)
+                continue
+
+            last_uid = uid
+            last_touch = now
+
+            emit("nfc:status", {"status": "reading"})
+
+            existing = api.find_student_by_uid(uid)
+            if existing:
+                student_id = existing["student_id"]
+                student_name = existing["student_name"]
+                print(f"[DEBUG] PC/SC DB hit: {student_id} {student_name}")
+            else:
+                student_id, student_name = _pcsc_read_fitcard_by_uid(conn, uid)
+                print(f"[DEBUG] PC/SC new UID: {uid} / student: {student_id} {student_name}")
+
+            emit("nfc:read", {
+                "card_uid": uid,
+                "student_id": student_id,
+                "student_name": student_name,
+            })
+            emit("nfc:status", {"status": "done"})
+            time.sleep(0.4)
+        except KeyboardInterrupt:
+            break
+        except NoCardException:
+            time.sleep(0.2)
+        except CardConnectionException as e:
+            emit("nfc:status", {"status": "error", "message": _format_nfc_error(e)})
+            time.sleep(1.0)
+        except Exception as e:
+            emit("nfc:status", {"status": "error", "message": _format_nfc_error(e)})
+            time.sleep(1.0)
+
+
 def nfc_loop():
     """NFC 読み取りループ（別スレッド）"""
+    if sys.platform == 'win32':
+        nfc_loop_pcsc_windows()
+        return
+
     last_touch = 0
 
     def on_connect(tag):
@@ -331,7 +628,7 @@ def nfc_loop():
         except KeyboardInterrupt:
             break
         except Exception as e:
-            emit("nfc:status", {"status": "error", "message": str(e)})
+            emit("nfc:status", {"status": "error", "message": _format_nfc_error(e)})
             time.sleep(2)
 
 
@@ -382,17 +679,26 @@ def main():
     def show_students():
         emit("navigate", {"page": "students"})
 
+    def show_members():
+        emit("navigate", {"page": "members"})
+
     def show_home():
         emit("navigate", {"page": "session-select"})
+
+    def show_hub_settings():
+        emit("navigate", {"page": "hub-settings"})
 
     menu = [
         Menu('表示', [
             MenuAction('セッション一覧', show_home),
-            MenuAction('学生一覧', show_students),
+            MenuAction('学生証一覧', show_students),
+            MenuAction('部員一覧', show_members),
+            MenuAction('Hub連携設定', show_hub_settings),
         ]),
     ]
 
-    webview.start(on_webview_loaded, menu=menu, debug=bool(os.environ.get("DEV")))
+    gui = WINDOWS_GUI if sys.platform == 'win32' else None
+    webview.start(on_webview_loaded, menu=menu, gui=gui, debug=bool(os.environ.get("DEV")))
 
 
 if __name__ == "__main__":

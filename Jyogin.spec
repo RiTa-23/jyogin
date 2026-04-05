@@ -4,14 +4,26 @@ from PyInstaller.utils.hooks import collect_submodules
 
 VERSION = os.environ.get('APP_VERSION', '0.0.0')
 
+import sys
+
 hiddenimports = []
 hiddenimports += collect_submodules('nfc')
+
+# Windows: pywebview は Qt backend を使用
+if sys.platform == 'win32':
+    hiddenimports += collect_submodules('PySide6')
+    hiddenimports += collect_submodules('qtpy')
+    hiddenimports += collect_submodules('smartcard')
+    hiddenimports += ['webview.platforms.qt']
+
+extra_datas = [('frontend/dist', 'frontend/dist')]
+extra_binaries = []
 
 a = Analysis(
     ['backend/main.py'],
     pathex=[],
-    binaries=[],
-    datas=[('frontend/dist', 'frontend/dist')],
+    binaries=extra_binaries,
+    datas=extra_datas,
     hiddenimports=hiddenimports,
     hookspath=[],
     hooksconfig={},
@@ -32,7 +44,7 @@ exe = EXE(
     bootloader_ignore_signals=False,
     strip=False,
     upx=True,
-    console=False,
+    console=True,
     disable_windowed_traceback=False,
     argv_emulation=False,
     target_arch=None,
