@@ -54,6 +54,10 @@ jobs:
             echo "icon=frontend/public/JyogiN.ico" >> "$GITHUB_OUTPUT"
           fi
 
+      - name: Debug pythonnet location (Windows)
+        if: runner.os == 'Windows'
+        run: python -c "import pythonnet; print(pythonnet.__file__); import os; d=os.path.dirname(pythonnet.__file__); print(os.listdir(d)); r=os.path.join(d,'runtime'); print(os.listdir(r) if os.path.isdir(r) else 'no runtime dir')"
+
       - name: Build app
         env:
           APP_VERSION: ${{ steps.vars.outputs.version }}

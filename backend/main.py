@@ -13,6 +13,12 @@ import sqlite3
 import sys
 import threading
 import time
+
+# Windows: pythonnet を coreclr ランタイムで初期化
+if sys.platform == 'win32':
+    from pythonnet import load
+    load("coreclr")
+
 import webview
 from webview.menu import Menu, MenuAction
 

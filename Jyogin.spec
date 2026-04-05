@@ -19,21 +19,23 @@ extra_datas = [('frontend/dist', 'frontend/dist')]
 extra_binaries = []
 
 if sys.platform == 'win32':
-    import importlib.util
+    import pythonnet
+    import clr_loader
     # pythonnet の runtime DLL をバンドル
-    spec = importlib.util.find_spec('pythonnet')
-    if spec and spec.submodule_search_locations:
-        pythonnet_dir = spec.submodule_search_locations[0]
-        runtime_dir = os.path.join(pythonnet_dir, 'runtime')
-        if os.path.isdir(runtime_dir):
-            extra_datas.append((runtime_dir, 'pythonnet/runtime'))
+    pythonnet_dir = os.path.dirname(pythonnet.__file__)
+    runtime_dir = os.path.join(pythonnet_dir, 'runtime')
+    if os.path.isdir(runtime_dir):
+        print(f"[SPEC] Bundling pythonnet runtime from: {runtime_dir}")
+        print(f"[SPEC] Contents: {os.listdir(runtime_dir)}")
+        extra_datas.append((runtime_dir, os.path.join('pythonnet', 'runtime')))
+    else:
+        print(f"[SPEC] WARNING: pythonnet runtime dir not found at {runtime_dir}")
     # clr_loader のデータもバンドル
-    spec2 = importlib.util.find_spec('clr_loader')
-    if spec2 and spec2.submodule_search_locations:
-        clr_dir = spec2.submodule_search_locations[0]
-        ffi_dir = os.path.join(clr_dir, 'ffi')
-        if os.path.isdir(ffi_dir):
-            extra_datas.append((ffi_dir, 'clr_loader/ffi'))
+    clr_dir = os.path.dirname(clr_loader.__file__)
+    ffi_dir = os.path.join(clr_dir, 'ffi')
+    if os.path.isdir(ffi_dir):
+        print(f"[SPEC] Bundling clr_loader ffi from: {ffi_dir}")
+        extra_datas.append((ffi_dir, os.path.join('clr_loader', 'ffi')))
 
 a = Analysis(
     ['backend/main.py'],
