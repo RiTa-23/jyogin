@@ -270,17 +270,17 @@ function App() {
               <table className="students-table">
                 <thead>
                   <tr>
-                    <th>学籍番号</th>
+                    <th>Discord名</th>
                     <th>本名</th>
-                    <th>Discord</th>
+                    <th>学籍番号</th>
                   </tr>
                 </thead>
                 <tbody>
                   {hubMembers.map((m) => (
                     <tr key={m.id}>
-                      <td className="mono">{m.student_id || '-'}</td>
-                      <td>{m.real_name || '-'}</td>
                       <td>{m.display_name || m.username || '-'}</td>
+                      <td>{m.real_name || '-'}</td>
+                      <td className="mono">{m.student_id || '-'}</td>
                     </tr>
                   ))}
                 </tbody>
@@ -306,9 +306,9 @@ function App() {
             <thead>
               <tr>
                 <th></th>
-                <th>学籍番号</th>
+                <th>Discord名</th>
                 <th>本名</th>
-                <th>Discord</th>
+                <th>学籍番号</th>
               </tr>
             </thead>
             <tbody>
@@ -321,9 +321,9 @@ function App() {
                       <span style={{ display: 'inline-block', width: 24, height: 24, borderRadius: '50%', background: '#dee2e6', textAlign: 'center', lineHeight: '24px', fontSize: 12 }}>?</span>
                     )}
                   </td>
-                  <td className="mono">{m.student_id || '-'}</td>
-                  <td>{m.real_name || '-'}</td>
                   <td>{m.display_name || m.username || '-'}</td>
+                  <td>{m.real_name || '-'}</td>
+                  <td className="mono">{m.student_id || '-'}</td>
                 </tr>
               ))}
             </tbody>
