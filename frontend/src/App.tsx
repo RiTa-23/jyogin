@@ -20,7 +20,7 @@ const STATUS_CONFIG: Record<NfcStatus, { label: string; icon: string }> = {
 
 function NoteInput({ attendance }: { attendance: Attendance }) {
   const [value, setValue] = useState(attendance.note ?? '')
-  const timerRef = useRef<ReturnType<typeof setTimeout>>()
+  const timerRef = useRef<ReturnType<typeof setTimeout>>(undefined)
 
   const save = (note: string) => {
     const api = window.pywebview?.api
