@@ -307,7 +307,7 @@ def main():
 
     if os.environ.get("DEV"):
         window = webview.create_window(
-            "NFC 出席確認",
+            "Jyogin",
             url=url,
             js_api=api,
             width=480,
@@ -315,7 +315,7 @@ def main():
         )
     else:
         window = webview.create_window(
-            "NFC 出席確認",
+            "Jyogin",
             url=os.path.join(url, "index.html"),
             js_api=api,
             width=480,
