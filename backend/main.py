@@ -7,6 +7,7 @@ pywebview で React フロントエンドを表示し、
 
 import json
 import os
+import sqlite3
 import sys
 import threading
 import time
@@ -22,10 +23,107 @@ TOUCH_COOLDOWN = 2.0
 window = None
 window_ready = threading.Event()
 
+# DB パス（アプリと同じディレクトリに保存）
+DB_PATH = os.path.join(os.path.dirname(__file__), "jyogin.db")
+
+
+def init_db():
+    """データベース初期化"""
+    conn = sqlite3.connect(DB_PATH)
+    conn.execute(
+        """CREATE TABLE IF NOT EXISTS sessions (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            name TEXT NOT NULL,
+            created_at TEXT DEFAULT (datetime('now', 'localtime'))
+        )"""
+    )
+    conn.execute(
+        """CREATE TABLE IF NOT EXISTS attendances (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            session_id INTEGER NOT NULL,
+            student_id TEXT NOT NULL,
+            student_name TEXT,
+            card_uid TEXT,
+            note TEXT DEFAULT '',
+            scanned_at TEXT DEFAULT (datetime('now', 'localtime')),
+            FOREIGN KEY (session_id) REFERENCES sessions(id),
+            UNIQUE(session_id, student_id)
+        )"""
+    )
+    # 既存DBへのマイグレーション: note カラム追加
+    try:
+        conn.execute("ALTER TABLE attendances ADD COLUMN note TEXT DEFAULT ''")
+    except sqlite3.OperationalError:
+        pass  # 既に存在する
+    conn.commit()
+    conn.close()
+
 
 class Api:
     """JS から呼べる Python API（window.pywebview.api.xxx）"""
-    pass
+
+    def create_session(self, name):
+        """セッションを新規作成して返す"""
+        conn = sqlite3.connect(DB_PATH)
+        cur = conn.execute("INSERT INTO sessions (name) VALUES (?)", (name,))
+        session_id = cur.lastrowid
+        conn.commit()
+        conn.close()
+        return {"id": session_id, "name": name}
+
+    def get_sessions(self):
+        """セッション一覧を返す"""
+        conn = sqlite3.connect(DB_PATH)
+        conn.row_factory = sqlite3.Row
+        rows = conn.execute("SELECT * FROM sessions ORDER BY created_at DESC").fetchall()
+        conn.close()
+        return [dict(r) for r in rows]
+
+    def get_attendances(self, session_id):
+        """指定セッションの出席一覧を返す"""
+        conn = sqlite3.connect(DB_PATH)
+        conn.row_factory = sqlite3.Row
+        rows = conn.execute(
+            "SELECT * FROM attendances WHERE session_id = ? ORDER BY scanned_at",
+            (session_id,),
+        ).fetchall()
+        conn.close()
+        return [dict(r) for r in rows]
+
+    def delete_session(self, session_id):
+        """セッションと関連する出席データを削除"""
+        conn = sqlite3.connect(DB_PATH)
+        conn.execute("DELETE FROM attendances WHERE session_id = ?", (session_id,))
+        conn.execute("DELETE FROM sessions WHERE id = ?", (session_id,))
+        conn.commit()
+        conn.close()
+        return {"status": "deleted"}
+
+    def record_attendance(self, session_id, student_id, student_name, card_uid):
+        """出席を記録する（重複時はスキップ）"""
+        conn = sqlite3.connect(DB_PATH)
+        try:
+            conn.execute(
+                "INSERT INTO attendances (session_id, student_id, student_name, card_uid) VALUES (?, ?, ?, ?)",
+                (session_id, student_id, student_name, card_uid),
+            )
+            conn.commit()
+            conn.close()
+            return {"status": "recorded"}
+        except sqlite3.IntegrityError:
+            conn.close()
+            return {"status": "duplicate"}
+
+    def update_note(self, attendance_id, note):
+        """出席レコードの備考を更新"""
+        conn = sqlite3.connect(DB_PATH)
+        conn.execute(
+            "UPDATE attendances SET note = ? WHERE id = ?",
+            (note, attendance_id),
+        )
+        conn.commit()
+        conn.close()
+        return {"status": "updated"}
 
 
 def read_fitcard(tag):
@@ -119,6 +217,8 @@ def on_webview_loaded():
 
 def main():
     global window
+
+    init_db()
 
     # 開発中は Vite dev server、本番は dist を読む
     dev_url = "http://localhost:5173"
