@@ -14,51 +14,10 @@ import sys
 import threading
 import time
 
-# Windows: pythonnet を .NET Desktop Runtime (WinForms対応) で初期化
+# Windows: pythonnet を .NET Framework で初期化
 if sys.platform == 'win32':
-    import glob
-    from clr_loader import get_coreclr
-    from pythonnet import set_runtime
-
-    # .NET Desktop Runtime のパスを検出
-    dotnet_root = os.environ.get("DOTNET_ROOT", r"C:\Program Files\dotnet")
-    all_desktop_dirs = sorted(
-        glob.glob(os.path.join(dotnet_root, "shared", "Microsoft.WindowsDesktop.App", "*")),
-        reverse=True,
-    )
-    # .NET 8.x を優先（9.x は ContextMenu 廃止で pywebview と非互換）
-    desktop_dirs = [d for d in all_desktop_dirs if os.path.basename(d).startswith("8.")]
-    if not desktop_dirs:
-        desktop_dirs = all_desktop_dirs
-    if desktop_dirs:
-        # アプリ実行ディレクトリに runtimeconfig.json を作成
-        if getattr(sys, "_MEIPASS", None):
-            config_dir = sys._MEIPASS
-        else:
-            config_dir = os.path.dirname(os.path.abspath(__file__))
-        config_path = os.path.join(config_dir, "jyogin.runtimeconfig.json")
-        runtime_config = {
-            "runtimeOptions": {
-                "tfm": "net8.0",
-                "framework": {
-                    "name": "Microsoft.WindowsDesktop.App",
-                    "version": os.path.basename(desktop_dirs[0]),
-                },
-            }
-        }
-        with open(config_path, "w") as f:
-            json.dump(runtime_config, f)
-        rt = get_coreclr(runtime_config=config_path)
-        set_runtime(rt)
-    else:
-        from pythonnet import load
-        load("coreclr")
-
-# Windows: pywebview に必要な .NET アセンブリを事前ロード
-if sys.platform == 'win32':
-    import clr
-    clr.AddReference("System.Windows.Forms")
-    clr.AddReference("Microsoft.Win32.SystemEvents")
+    from pythonnet import load
+    load("netfx")
 
 import webview
 from webview.menu import Menu, MenuAction
