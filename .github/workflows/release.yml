@@ -41,9 +41,20 @@ jobs:
         if: runner.os == 'macOS'
         run: brew install libusb
 
+      - name: Set icon path
+        id: icon
+        shell: bash
+        run: |
+          if [ "$RUNNER_OS" = "macOS" ]; then
+            echo "path=frontend/public/JyogiN.icns" >> "$GITHUB_OUTPUT"
+          else
+            echo "path=frontend/public/JyogiN.ico" >> "$GITHUB_OUTPUT"
+          fi
+
       - name: Build app
         run: >
           pyinstaller -y --windowed --name "JyogiN"
+          --icon "${{ steps.icon.outputs.path }}"
           --add-data "frontend/dist${{ matrix.separator }}frontend/dist"
           --collect-submodules nfc
           backend/main.py
