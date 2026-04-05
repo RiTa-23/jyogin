@@ -12,6 +12,7 @@ hiddenimports += collect_submodules('nfc')
 # Windows: pywebview は Qt backend を使用
 if sys.platform == 'win32':
     hiddenimports += collect_submodules('PySide6')
+    hiddenimports += collect_submodules('qtpy')
     hiddenimports += ['webview.platforms.qt']
 
 extra_datas = [('frontend/dist', 'frontend/dist')]

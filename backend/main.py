@@ -17,12 +17,14 @@ import time
 # Windows: Qt backend を使用（pythonnet/.NET 依存を回避）
 WINDOWS_GUI = 'qt'
 if sys.platform == 'win32':
+    os.environ.setdefault('QT_API', 'pyside6')
     try:
         import PySide6  # noqa: F401
+        import qtpy  # noqa: F401
         print("[INFO] Windows GUI backend: qt (PySide6)")
     except Exception as qt_err:
         WINDOWS_GUI = None
-        print(f"[WARN] PySide6 が見つからないため GUI 自動選択にフォールバック: {qt_err}")
+        print(f"[WARN] PySide6/qtpy が見つからないため GUI 自動選択にフォールバック: {qt_err}")
 
 import webview
 from webview.menu import Menu, MenuAction
