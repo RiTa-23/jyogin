@@ -30,19 +30,19 @@ PCSC_AVAILABLE = False
 NoCardException = Exception
 CardConnectionException = Exception
 pcsc_readers = None
-if sys.platform == 'win32':
+if sys.platform in ('win32', 'darwin'):
     try:
-        from smartcard.System import readers as pcsc_readers
-        from smartcard.Exceptions import NoCardException, CardConnectionException
+        from smartcard.System import readers as pcsc_readers  # type: ignore[import-not-found]
+        from smartcard.Exceptions import NoCardException, CardConnectionException  # type: ignore[import-not-found]
         PCSC_AVAILABLE = True
-        print("[INFO] Windows NFC backend: PC/SC (pyscard)")
+        print(f"[INFO] NFC backend: PC/SC (pyscard) on {sys.platform}")
     except Exception as pcsc_err:
         print(f"[WARN] pyscard 未導入のため PC/SC が使えません: {pcsc_err}")
 
 import webview
 from webview.menu import Menu, MenuAction
 
-if sys.platform != 'win32':
+if sys.platform not in ('win32', 'darwin'):
     import nfc
     import nfc.tag.tt3
 import jaconv
@@ -437,7 +437,25 @@ def _format_nfc_error(error: Exception) -> str:
         return "WindowsのNFC読取に必要なコンポーネントが見つかりません。アプリを再インストールしてください。"
     if "PC/SC リーダーが見つかりません" in message:
         return "NFCリーダーが見つかりません。接続を確認してください。"
+    if "PC/SC リーダーに接続できません" in message:
+        return "NFCリーダーは検出されていますが接続できません。NFCポートソフトの再起動、またはUSB挿し直しを試してください。"
     return message
+
+
+def _is_pcsc_waiting_error(error: Exception) -> bool:
+    message = str(error).lower()
+    waiting_markers = [
+        "card is unpowered",
+        "0x80100067",
+        "card was removed",
+        "0x80100069",
+        "no smart card",
+        "scard_w_unpowered_card",
+        "scard_e_no_smartcard",
+        "sw=6985",
+        "operation not supported by device",
+    ]
+    return any(marker in message for marker in waiting_markers)
 
 
 def _pcsc_connect_first_reader():
@@ -446,13 +464,43 @@ def _pcsc_connect_first_reader():
     found_readers = pcsc_readers()
     if not found_readers:
         raise RuntimeError("PC/SC リーダーが見つかりません")
-    conn = found_readers[0].createConnection()
-    conn.connect()
-    return conn
+
+    def reader_score(reader):
+        name = str(reader).lower()
+        score = 0
+        if 'rc-s300' in name:
+            score += 100
+        if 'pasori' in name or 'pa so ri' in name:
+            score += 80
+        if 'sony' in name:
+            score += 60
+        if 'felica' in name:
+            score += 40
+        return score
+
+    sorted_readers = sorted(found_readers, key=reader_score, reverse=True)
+    reader_names = ', '.join(str(reader) for reader in sorted_readers)
+
+    last_error = None
+    for reader in sorted_readers:
+        try:
+            conn = reader.createConnection()
+            conn.connect()
+            print(f"[INFO] PC/SC reader connected: {reader}")
+            return conn
+        except Exception as connect_error:
+            last_error = connect_error
+            continue
+
+    if last_error:
+        raise RuntimeError(f"PC/SC リーダーに接続できません: {last_error} (検出: {reader_names})")
+    raise RuntimeError(f"PC/SC リーダーに接続できません (検出: {reader_names})")
 
 
 def _pcsc_get_uid(conn):
     data, sw1, sw2 = conn.transmit([0xFF, 0xCA, 0x00, 0x00, 0x00])
+    if (sw1, sw2) == (0x69, 0x85):
+        raise RuntimeError("PC/SC waiting state: SW=6985")
     if (sw1, sw2) != (0x90, 0x00):
         raise RuntimeError(f"UID取得失敗: SW={sw1:02X}{sw2:02X}")
     return ''.join(f'{byte:02X}' for byte in data)
@@ -522,11 +570,14 @@ def nfc_loop_pcsc_windows():
     """Windows専用: PC/SC 読み取りループ"""
     last_touch = 0.0
     last_uid = None
+    conn = None
     emit("nfc:status", {"status": "ready"})
 
     while True:
         try:
-            conn = _pcsc_connect_first_reader()
+            if conn is None:
+                conn = _pcsc_connect_first_reader()
+
             uid = _pcsc_get_uid(conn)
             now = time.time()
 
@@ -558,18 +609,37 @@ def nfc_loop_pcsc_windows():
         except KeyboardInterrupt:
             break
         except NoCardException:
+            emit("nfc:status", {"status": "ready"})
             time.sleep(0.2)
         except CardConnectionException as e:
+            if _is_pcsc_waiting_error(e):
+                conn = None
+                emit("nfc:status", {"status": "ready"})
+                time.sleep(0.2)
+                continue
+            conn = None
             emit("nfc:status", {"status": "error", "message": _format_nfc_error(e)})
             time.sleep(1.0)
         except Exception as e:
+            if _is_pcsc_waiting_error(e):
+                conn = None
+                emit("nfc:status", {"status": "ready"})
+                time.sleep(0.2)
+                continue
+            conn = None
             emit("nfc:status", {"status": "error", "message": _format_nfc_error(e)})
             time.sleep(1.0)
+
+    try:
+        if conn is not None:
+            conn.disconnect()
+    except Exception:
+        pass
 
 
 def nfc_loop():
     """NFC 読み取りループ（別スレッド）"""
-    if sys.platform == 'win32':
+    if sys.platform in ('win32', 'darwin'):
         nfc_loop_pcsc_windows()
         return
 
