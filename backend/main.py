@@ -123,11 +123,15 @@ def init_db():
         )"""
     )
 
-    # 既存DBへのマイグレーション: note カラム追加
+    # 既存DBへのマイグレーション
     try:
         conn.execute("ALTER TABLE attendances ADD COLUMN note TEXT DEFAULT ''")
     except sqlite3.OperationalError:
-        pass  # 既に存在する
+        pass
+    try:
+        conn.execute("ALTER TABLE attendances ADD COLUMN discord_name TEXT")
+    except sqlite3.OperationalError:
+        pass
     conn.commit()
     conn.close()
 
@@ -194,6 +198,15 @@ class Api:
         """出席を記録し、studentsテーブルにも登録する"""
         conn = sqlite3.connect(DB_PATH)
 
+        # membersテーブルから学籍番号で一致する部員を検索
+        member = conn.execute(
+            "SELECT display_name, username FROM members WHERE student_id COLLATE NOCASE = ?",
+            (student_id,),
+        ).fetchone()
+        discord_name = None
+        if member:
+            discord_name = member[0] or member[1]
+
         # studentsテーブルにcard_uidが未登録なら追加、登録済みなら更新
         conn.execute(
             """INSERT INTO students (student_id, student_name, card_uid)
@@ -207,8 +220,8 @@ class Api:
 
         try:
             conn.execute(
-                "INSERT INTO attendances (session_id, student_id, student_name, card_uid) VALUES (?, ?, ?, ?)",
-                (session_id, student_id, student_name, card_uid),
+                "INSERT INTO attendances (session_id, student_id, student_name, discord_name, card_uid) VALUES (?, ?, ?, ?, ?)",
+                (session_id, student_id, student_name, discord_name, card_uid),
             )
             conn.commit()
             conn.close()

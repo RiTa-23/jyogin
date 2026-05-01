@@ -259,6 +259,12 @@ h1 {
   font-weight: 700;
 }
 
+.student-discord-name {
+  font-size: 0.9rem;
+  color: #7c3aed;
+  font-weight: 500;
+}
+
 /* 出席者一覧 */
 .attendance-list {
   text-align: left;
@@ -288,6 +294,12 @@ h1 {
 
 .attendance-name {
   font-weight: 600;
+  white-space: nowrap;
+}
+
+.attendance-discord-name {
+  font-size: 0.75rem;
+  color: #7c3aed;
   white-space: nowrap;
 }
 

@@ -8,6 +8,7 @@ interface NfcReadEvent {
   card_uid: string
   student_id: string | null
   student_name: string | null
+  discord_name?: string | null
 }
 
 const STATUS_CONFIG: Record<NfcStatus, { label: string; icon: string }> = {
@@ -107,7 +108,6 @@ function App() {
 
     const onRead = async (e: CustomEvent) => {
       const data: NfcReadEvent = e.detail
-      setLastRead(data)
 
       const session = activeSessionRef.current
       if (!session || !data.student_id) return
@@ -124,6 +124,14 @@ function App() {
 
       const list = await api.get_attendances(session.id)
       setAttendances(list)
+
+      const latest = list.length > 0 ? list[list.length - 1] : null
+      setLastRead({
+        card_uid: data.card_uid,
+        student_id: data.student_id,
+        student_name: latest?.student_name ?? data.student_name,
+        discord_name: latest?.discord_name,
+      })
     }
 
     const onNavigate = async (e: CustomEvent) => {
@@ -446,6 +454,9 @@ function App() {
         <div className={`card-info ${status === 'done' ? 'highlight' : ''}`}>
           <p className="student-id">学籍番号: {lastRead.student_id}</p>
           <p className="student-name">{lastRead.student_name}</p>
+          {lastRead.discord_name && (
+            <p className="student-discord-name">@{lastRead.discord_name}</p>
+          )}
         </div>
       )}
 
@@ -455,6 +466,7 @@ function App() {
           <div key={a.id} className="attendance-item">
             <span className="attendance-id">{a.student_id}</span>
             <span className="attendance-name">{a.student_name}</span>
+            {a.discord_name && <span className="attendance-discord-name">@{a.discord_name}</span>}
             <span className="attendance-time">{a.scanned_at?.slice(11, 16)}</span>
             <NoteInput attendance={a} />
           </div>

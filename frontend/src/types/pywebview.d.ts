@@ -9,6 +9,7 @@ interface Attendance {
   session_id: number
   student_id: string
   student_name: string
+  discord_name: string
   card_uid: string
   note: string
   scanned_at: string
