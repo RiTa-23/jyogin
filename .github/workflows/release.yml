@@ -42,7 +42,6 @@ jobs:
           pip install --upgrade pip
           pip install \
             "pywebview==4.4.1" \
-            "pyscard==2.0.10" \
             "nfcpy==1.0.4" \
             "jaconv==0.4.0" \
             "pyinstaller==6.16.0"
