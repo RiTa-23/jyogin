@@ -481,7 +481,7 @@ function App() {
             onClick={async () => {
               const api = window.pywebview?.api
               if (!api || !activeSession) return
-              const result = await api.refresh_discord_names(activeSession.id)
+              await api.refresh_discord_names(activeSession.id)
               const list = await api.get_attendances(activeSession.id)
               setAttendances(list)
             }}

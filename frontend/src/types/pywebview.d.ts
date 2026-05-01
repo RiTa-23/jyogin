@@ -43,7 +43,7 @@ interface Member {
 
 interface PyWebViewApi {
   get_students(): Promise<Student[]>
-  create_session(name: string): Promise<Session>
+  create_session(name: string): Promise<Session | { status: 'duplicate'; message: string }>
   get_sessions(): Promise<Session[]>
   delete_session(session_id: number): Promise<{ status: string }>
   get_attendances(session_id: number): Promise<Attendance[]>
