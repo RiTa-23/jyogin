@@ -53,6 +53,7 @@ interface PyWebViewApi {
     card_uid: string
   ): Promise<{ status: 'recorded' | 'duplicate' }>
   update_note(attendance_id: number, note: string): Promise<{ status: string }>
+  refresh_discord_names(session_id: number): Promise<{ status: string; count?: number }>
   get_hub_config(): Promise<HubConfig>
   save_hub_config(url: string, api_key: string): Promise<{ status: string }>
   sync_members(): Promise<{ status: string; count?: number; message?: string }>

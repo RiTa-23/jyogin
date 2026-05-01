@@ -241,6 +241,40 @@ class Api:
         conn.close()
         return {"status": "updated"}
 
+    def refresh_discord_names(self, session_id):
+        """出席データからメンバーテーブルを再検索してdiscord_nameを更新"""
+        conn = sqlite3.connect(DB_PATH)
+        rows = conn.execute(
+            "SELECT id, student_id FROM attendances WHERE session_id = ?",
+            (session_id,),
+        ).fetchall()
+
+        updated_count = 0
+        for attendance_id, student_id in rows:
+            member = conn.execute(
+                "SELECT display_name, username FROM members WHERE student_id COLLATE NOCASE = ?",
+                (student_id,),
+            ).fetchone()
+            if member:
+                discord_name = member[0] or member[1]
+                conn.execute(
+                    "UPDATE attendances SET discord_name = ? WHERE id = ?",
+                    (discord_name, attendance_id),
+                )
+                updated_count += 1
+
+        conn.commit()
+        conn.close()
+        return {"status": "refreshed", "count": updated_count}
+        conn = sqlite3.connect(DB_PATH)
+        conn.execute(
+            "UPDATE attendances SET note = ? WHERE id = ?",
+            (note, attendance_id),
+        )
+        conn.commit()
+        conn.close()
+        return {"status": "updated"}
+
     # --- Hub連携 ---
 
     def get_hub_config(self):

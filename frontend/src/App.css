@@ -271,6 +271,35 @@ h1 {
   margin-top: 1rem;
 }
 
+.attendance-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 0.5rem;
+}
+
+.attendance-header h2 {
+  font-size: 1rem;
+  color: #666;
+  margin-bottom: 0;
+}
+
+.refresh-discord-btn {
+  padding: 0.4rem 0.8rem;
+  background: #7c3aed;
+  color: white;
+  border: none;
+  border-radius: 6px;
+  font-size: 0.8rem;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.refresh-discord-btn:hover {
+  background: #6d28d9;
+}
+
 .attendance-list h2 {
   font-size: 1rem;
   color: #666;

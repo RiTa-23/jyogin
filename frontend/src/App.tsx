@@ -461,7 +461,21 @@ function App() {
       )}
 
       <div className="attendance-list">
-        <h2>出席者（{attendances.length}名）</h2>
+        <div className="attendance-header">
+          <h2>出席者（{attendances.length}名）</h2>
+          <button
+            className="refresh-discord-btn"
+            onClick={async () => {
+              const api = window.pywebview?.api
+              if (!api || !activeSession) return
+              const result = await api.refresh_discord_names(activeSession.id)
+              const list = await api.get_attendances(activeSession.id)
+              setAttendances(list)
+            }}
+          >
+            Discord名を再検索
+          </button>
+        </div>
         {attendances.map((a) => (
           <div key={a.id} className="attendance-item">
             <span className="attendance-id">{a.student_id}</span>
