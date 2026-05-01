@@ -455,15 +455,17 @@ function App() {
       {lastRead && lastRead.student_id && (
         <div className={`card-info ${status === 'done' ? 'highlight' : ''}`}>
           <p className="student-id">学籍番号: {lastRead.student_id}</p>
-          <p className="student-name">{lastRead.student_name}</p>
-          {lastRead.discord_name && (
-            <p className="student-discord-name">
-              {lastRead.discord_avatar && (
-                <img src={lastRead.discord_avatar} alt="" className="student-discord-avatar" />
-              )}
-              {lastRead.discord_name}
-            </p>
-          )}
+          <div className="student-info-row">
+            <p className="student-name">{lastRead.student_name}</p>
+            {lastRead.discord_name && (
+              <span className="student-discord-badge">
+                {lastRead.discord_avatar && (
+                  <img src={lastRead.discord_avatar} alt="" className="student-discord-avatar" />
+                )}
+                {lastRead.discord_name}
+              </span>
+            )}
+          </div>
         </div>
       )}
 
