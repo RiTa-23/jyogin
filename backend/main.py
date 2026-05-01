@@ -146,6 +146,10 @@ class Api:
     def create_session(self, name):
         """セッションを新規作成して返す"""
         conn = sqlite3.connect(DB_PATH)
+        existing = conn.execute("SELECT id FROM sessions WHERE name = ?", (name,)).fetchone()
+        if existing:
+            conn.close()
+            return {"status": "duplicate", "message": "同じ名前のセッションが既に存在します"}
         cur = conn.execute("INSERT INTO sessions (name) VALUES (?)", (name,))
         session_id = cur.lastrowid
         conn.commit()

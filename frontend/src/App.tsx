@@ -180,9 +180,13 @@ function App() {
     if (!name) return
     const api = window.pywebview?.api
     if (!api) return
-    const session = await api.create_session(name)
+    const result = await api.create_session(name)
+    if (result.status === 'duplicate') {
+      alert(result.message)
+      return
+    }
     setNewSessionName('')
-    setActiveSession(session)
+    setActiveSession(result)
     setAttendances([])
     setLastRead(null)
     setPage('scanning')
