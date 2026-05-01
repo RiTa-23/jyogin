@@ -50,7 +50,7 @@ jobs:
         if: runner.os == 'Windows'
         shell: bash
         run: |
-          pip install --upgrade pip
+          python -m pip install --upgrade pip
           pip install \
             "pywebview==4.4.1" \
             "PySide6==6.7.2" \
