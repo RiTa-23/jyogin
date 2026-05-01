@@ -181,7 +181,7 @@ function App() {
     const api = window.pywebview?.api
     if (!api) return
     const result = await api.create_session(name)
-    if (result.status === 'duplicate') {
+    if ('status' in result) {
       alert(result.message)
       return
     }
