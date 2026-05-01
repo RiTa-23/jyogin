@@ -455,7 +455,7 @@ function App() {
           <p className="student-id">学籍番号: {lastRead.student_id}</p>
           <p className="student-name">{lastRead.student_name}</p>
           {lastRead.discord_name && (
-            <p className="student-discord-name">@{lastRead.discord_name}</p>
+            <p className="student-discord-name">{lastRead.discord_name}</p>
           )}
         </div>
       )}
@@ -480,7 +480,7 @@ function App() {
           <div key={a.id} className="attendance-item">
             <span className="attendance-id">{a.student_id}</span>
             <span className="attendance-name">{a.student_name}</span>
-            {a.discord_name && <span className="attendance-discord-name">@{a.discord_name}</span>}
+            {a.discord_name && <span className="attendance-discord-name">{a.discord_name}</span>}
             <span className="attendance-time">{a.scanned_at?.slice(11, 16)}</span>
             <NoteInput attendance={a} />
           </div>
