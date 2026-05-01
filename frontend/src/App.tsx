@@ -9,6 +9,7 @@ interface NfcReadEvent {
   student_id: string | null
   student_name: string | null
   discord_name?: string | null
+  discord_avatar?: string | null
 }
 
 const STATUS_CONFIG: Record<NfcStatus, { label: string; icon: string }> = {
@@ -131,6 +132,7 @@ function App() {
         student_id: data.student_id,
         student_name: latest?.student_name ?? data.student_name,
         discord_name: latest?.discord_name,
+        discord_avatar: latest?.discord_avatar,
       })
     }
 
@@ -455,7 +457,12 @@ function App() {
           <p className="student-id">学籍番号: {lastRead.student_id}</p>
           <p className="student-name">{lastRead.student_name}</p>
           {lastRead.discord_name && (
-            <p className="student-discord-name">{lastRead.discord_name}</p>
+            <p className="student-discord-name">
+              {lastRead.discord_avatar && (
+                <img src={lastRead.discord_avatar} alt="" className="student-discord-avatar" />
+              )}
+              {lastRead.discord_name}
+            </p>
           )}
         </div>
       )}
@@ -473,14 +480,21 @@ function App() {
               setAttendances(list)
             }}
           >
-            Discord名を再検索
+            Discord更新
           </button>
         </div>
         {attendances.map((a) => (
           <div key={a.id} className="attendance-item">
             <span className="attendance-id">{a.student_id}</span>
             <span className="attendance-name">{a.student_name}</span>
-            {a.discord_name && <span className="attendance-discord-name">{a.discord_name}</span>}
+            {a.discord_name && (
+              <span className="attendance-discord-name">
+                {a.discord_avatar && (
+                  <img src={a.discord_avatar} alt="" className="attendance-discord-avatar" />
+                )}
+                {a.discord_name}
+              </span>
+            )}
             <span className="attendance-time">{a.scanned_at?.slice(11, 16)}</span>
             <NoteInput attendance={a} />
           </div>

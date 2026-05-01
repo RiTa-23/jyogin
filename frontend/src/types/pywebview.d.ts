@@ -10,6 +10,7 @@ interface Attendance {
   student_id: string
   student_name: string
   discord_name: string
+  discord_avatar: string
   card_uid: string
   note: string
   scanned_at: string

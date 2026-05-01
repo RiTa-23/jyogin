@@ -263,6 +263,17 @@ h1 {
   font-size: 0.9rem;
   color: #7c3aed;
   font-weight: 500;
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  margin-top: 0.3rem;
+}
+
+.student-discord-avatar {
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  flex-shrink: 0;
 }
 
 /* 出席者一覧 */
@@ -330,6 +341,16 @@ h1 {
   font-size: 0.75rem;
   color: #7c3aed;
   white-space: nowrap;
+  display: flex;
+  align-items: center;
+  gap: 0.3rem;
+}
+
+.attendance-discord-avatar {
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  flex-shrink: 0;
 }
 
 .attendance-time {

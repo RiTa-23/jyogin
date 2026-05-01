@@ -132,6 +132,10 @@ def init_db():
         conn.execute("ALTER TABLE attendances ADD COLUMN discord_name TEXT")
     except sqlite3.OperationalError:
         pass
+    try:
+        conn.execute("ALTER TABLE attendances ADD COLUMN discord_avatar TEXT")
+    except sqlite3.OperationalError:
+        pass
     conn.commit()
     conn.close()
 
@@ -200,12 +204,14 @@ class Api:
 
         # membersテーブルから学籍番号で一致する部員を検索
         member = conn.execute(
-            "SELECT display_name, username FROM members WHERE student_id COLLATE NOCASE = ?",
+            "SELECT display_name, username, avatar_url FROM members WHERE student_id COLLATE NOCASE = ?",
             (student_id,),
         ).fetchone()
         discord_name = None
+        discord_avatar = None
         if member:
             discord_name = member[0] or member[1]
+            discord_avatar = member[2]
 
         # studentsテーブルにcard_uidが未登録なら追加、登録済みなら更新
         conn.execute(
@@ -220,8 +226,8 @@ class Api:
 
         try:
             conn.execute(
-                "INSERT INTO attendances (session_id, student_id, student_name, discord_name, card_uid) VALUES (?, ?, ?, ?, ?)",
-                (session_id, student_id, student_name, discord_name, card_uid),
+                "INSERT INTO attendances (session_id, student_id, student_name, discord_name, discord_avatar, card_uid) VALUES (?, ?, ?, ?, ?, ?)",
+                (session_id, student_id, student_name, discord_name, discord_avatar, card_uid),
             )
             conn.commit()
             conn.close()
@@ -242,7 +248,7 @@ class Api:
         return {"status": "updated"}
 
     def refresh_discord_names(self, session_id):
-        """出席データからメンバーテーブルを再検索してdiscord_nameを更新"""
+        """出席データからメンバーテーブルを再検索してdiscord_nameとdiscord_avatarを更新"""
         conn = sqlite3.connect(DB_PATH)
         rows = conn.execute(
             "SELECT id, student_id FROM attendances WHERE session_id = ?",
@@ -252,14 +258,15 @@ class Api:
         updated_count = 0
         for attendance_id, student_id in rows:
             member = conn.execute(
-                "SELECT display_name, username FROM members WHERE student_id COLLATE NOCASE = ?",
+                "SELECT display_name, username, avatar_url FROM members WHERE student_id COLLATE NOCASE = ?",
                 (student_id,),
             ).fetchone()
             if member:
                 discord_name = member[0] or member[1]
+                discord_avatar = member[2]
                 conn.execute(
-                    "UPDATE attendances SET discord_name = ? WHERE id = ?",
-                    (discord_name, attendance_id),
+                    "UPDATE attendances SET discord_name = ?, discord_avatar = ? WHERE id = ?",
+                    (discord_name, discord_avatar, attendance_id),
                 )
                 updated_count += 1
 
