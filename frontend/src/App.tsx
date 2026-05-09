@@ -60,6 +60,7 @@ function App() {
   const [hubUrl, setHubUrl] = useState('')
   const [hubApiKey, setHubApiKey] = useState('')
   const [hubMembers, setHubMembers] = useState<Member[]>([])
+  const [memberSearch, setMemberSearch] = useState('')
   const [hubMsg, setHubMsg] = useState('')
   const [hubLoading, setHubLoading] = useState(false)
 
@@ -278,6 +279,14 @@ function App() {
   }
 
   if (page === 'members') {
+    const q = memberSearch.toLowerCase()
+    const filtered = hubMembers.filter(m =>
+      (m.display_name ?? '').toLowerCase().includes(q) ||
+      (m.username ?? '').toLowerCase().includes(q) ||
+      (m.real_name ?? '').toLowerCase().includes(q) ||
+      (m.student_id ?? '').toLowerCase().includes(q)
+    )
+
     return (
       <div className="app">
         <header className="scan-header">
@@ -292,7 +301,14 @@ function App() {
             </button>
           </div>
           {hubMsg && <p className="hub-msg">{hubMsg}</p>}
-          <p className="students-count">{hubMembers.length}名</p>
+          <input
+            className="search-input"
+            type="text"
+            placeholder="名前・学籍番号・Discord名で検索"
+            value={memberSearch}
+            onChange={e => setMemberSearch(e.target.value)}
+          />
+          <p className="students-count">{filtered.length}名 / {hubMembers.length}名</p>
           <table className="students-table">
             <thead>
               <tr>
@@ -303,7 +319,7 @@ function App() {
               </tr>
             </thead>
             <tbody>
-              {hubMembers.map((m) => (
+              {filtered.map((m) => (
                 <tr key={m.id}>
                   <td>
                     {m.avatar_url ? (
@@ -319,8 +335,10 @@ function App() {
               ))}
             </tbody>
           </table>
-          {hubMembers.length === 0 && (
-            <p className="empty-msg">部員データがありません。Hub連携設定から同期してください。</p>
+          {filtered.length === 0 && (
+            <p className="empty-msg">
+              {memberSearch ? '検索に一致する部員がいません' : '部員データがありません。Hub連携設定から同期してください。'}
+            </p>
           )}
         </div>
       </div>
