@@ -44,7 +44,8 @@ jobs:
             "pywebview==4.4.1" \
             "nfcpy==1.0.4" \
             "jaconv==0.4.0" \
-            "pyinstaller==6.16.0"
+            "pyinstaller==6.16.0" \
+            "certifi>=2024.0.0"
 
       - name: Install Python dependencies (Windows)
         if: runner.os == 'Windows'
@@ -58,7 +59,8 @@ jobs:
             "pyscard==2.0.10" \
             "nfcpy==1.0.4" \
             "jaconv==0.4.0" \
-            "pyinstaller==6.16.0"
+            "pyinstaller==6.16.0" \
+            "certifi>=2024.0.0"
 
       - name: Install libusb (macOS)
         if: runner.os == 'macOS'

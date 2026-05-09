@@ -49,6 +49,13 @@ import jaconv
 
 import urllib.request
 import urllib.error
+import ssl
+
+try:
+    import certifi
+    _SSL_CONTEXT = ssl.create_default_context(cafile=certifi.where())
+except ImportError:
+    _SSL_CONTEXT = ssl.create_default_context()
 
 TOUCH_COOLDOWN = 2.0
 
@@ -314,7 +321,7 @@ class Api:
                 f"{config['url']}/api/hub/members",
                 headers={"Authorization": f"Bearer {config['api_key']}"},
             )
-            with urllib.request.urlopen(req, timeout=30) as res:
+            with urllib.request.urlopen(req, timeout=30, context=_SSL_CONTEXT) as res:
                 data = json.loads(res.read().decode("utf-8"))
         except urllib.error.HTTPError as e:
             return {"status": "error", "message": f"HTTP {e.code}"}
@@ -383,7 +390,7 @@ class Api:
                 },
                 method="POST",
             )
-            with urllib.request.urlopen(req, timeout=30) as res:
+            with urllib.request.urlopen(req, timeout=30, context=_SSL_CONTEXT) as res:
                 result = json.loads(res.read().decode("utf-8"))
             return result
         except urllib.error.HTTPError as e:
