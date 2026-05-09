@@ -2,12 +2,14 @@ import { useEffect, useState, useRef } from 'react'
 import './App.css'
 
 type NfcStatus = 'waiting' | 'ready' | 'reading' | 'done' | 'error'
-type Page = 'session-select' | 'scanning' | 'students'
+type Page = 'session-select' | 'scanning' | 'students' | 'members' | 'hub-settings'
 
 interface NfcReadEvent {
   card_uid: string
   student_id: string | null
   student_name: string | null
+  discord_name?: string | null
+  discord_avatar?: string | null
 }
 
 const STATUS_CONFIG: Record<NfcStatus, { label: string; icon: string }> = {
@@ -55,6 +57,13 @@ function App() {
 
   const [students, setStudents] = useState<Student[]>([])
 
+  const [hubUrl, setHubUrl] = useState('')
+  const [hubApiKey, setHubApiKey] = useState('')
+  const [hubMembers, setHubMembers] = useState<Member[]>([])
+  const [memberSearch, setMemberSearch] = useState('')
+  const [hubMsg, setHubMsg] = useState('')
+  const [hubLoading, setHubLoading] = useState(false)
+
   const [status, setStatus] = useState<NfcStatus>('waiting')
   const [lastRead, setLastRead] = useState<NfcReadEvent | null>(null)
   const [errorMsg, setErrorMsg] = useState('')
@@ -101,7 +110,6 @@ function App() {
 
     const onRead = async (e: CustomEvent) => {
       const data: NfcReadEvent = e.detail
-      setLastRead(data)
 
       const session = activeSessionRef.current
       if (!session || !data.student_id) return
@@ -118,6 +126,15 @@ function App() {
 
       const list = await api.get_attendances(session.id)
       setAttendances(list)
+
+      const latest = list.length > 0 ? list[list.length - 1] : null
+      setLastRead({
+        card_uid: data.card_uid,
+        student_id: data.student_id,
+        student_name: latest?.student_name ?? data.student_name,
+        discord_name: latest?.discord_name,
+        discord_avatar: latest?.discord_avatar,
+      })
     }
 
     const onNavigate = async (e: CustomEvent) => {
@@ -128,6 +145,21 @@ function App() {
         if (api) {
           const list = await api.get_students()
           setStudents(list)
+        }
+      }
+      if (targetPage === 'members') {
+        const api = window.pywebview?.api
+        if (api) {
+          const members = await api.get_members()
+          setHubMembers(members)
+        }
+      }
+      if (targetPage === 'hub-settings') {
+        const api = window.pywebview?.api
+        if (api) {
+          const config = await api.get_hub_config()
+          setHubUrl(config.url)
+          setHubApiKey(config.api_key)
         }
       }
     }
@@ -149,9 +181,13 @@ function App() {
     if (!name) return
     const api = window.pywebview?.api
     if (!api) return
-    const session = await api.create_session(name)
+    const result = await api.create_session(name)
+    if ('status' in result) {
+      alert(result.message)
+      return
+    }
     setNewSessionName('')
-    setActiveSession(session)
+    setActiveSession(result)
     setAttendances([])
     setLastRead(null)
     setPage('scanning')
@@ -183,12 +219,138 @@ function App() {
     setPage('session-select')
   }
 
+  const handleSyncMembers = async () => {
+    const api = window.pywebview?.api
+    if (!api) return
+    setHubLoading(true)
+    setHubMsg('')
+    const result = await api.sync_members()
+    if (result.status === 'synced') {
+      setHubMsg(`${result.count}名の部員データを同期しました`)
+      const members = await api.get_members()
+      setHubMembers(members)
+    } else {
+      setHubMsg(`エラー: ${result.message}`)
+    }
+    setHubLoading(false)
+  }
+
+  if (page === 'hub-settings') {
+    const handleSaveConfig = async () => {
+      const api = window.pywebview?.api
+      if (!api) return
+      await api.save_hub_config(hubUrl, hubApiKey)
+      setHubMsg('設定を保存しました')
+    }
+
+    return (
+      <div className="app">
+        <header className="scan-header">
+          <button className="back-btn" onClick={handleBack}>← 戻る</button>
+          <h1>Hub連携設定</h1>
+        </header>
+
+        <div className="hub-settings">
+          <div className="hub-field">
+            <label>JyoginHub URL</label>
+            <input
+              type="text"
+              placeholder="https://example.com"
+              value={hubUrl}
+              onChange={(e) => setHubUrl(e.target.value)}
+            />
+          </div>
+          <div className="hub-field">
+            <label>APIキー</label>
+            <input
+              type="password"
+              placeholder="jyogin_..."
+              value={hubApiKey}
+              onChange={(e) => setHubApiKey(e.target.value)}
+            />
+          </div>
+          <div className="hub-actions">
+            <button onClick={handleSaveConfig}>設定を保存</button>
+          </div>
+          {hubMsg && <p className="hub-msg">{hubMsg}</p>}
+        </div>
+      </div>
+    )
+  }
+
+  if (page === 'members') {
+    const q = memberSearch.toLowerCase()
+    const filtered = hubMembers.filter(m =>
+      (m.display_name ?? '').toLowerCase().includes(q) ||
+      (m.username ?? '').toLowerCase().includes(q) ||
+      (m.real_name ?? '').toLowerCase().includes(q) ||
+      (m.student_id ?? '').toLowerCase().includes(q)
+    )
+
+    return (
+      <div className="app">
+        <header className="scan-header">
+          <button className="back-btn" onClick={handleBack}>← 戻る</button>
+          <h1>部員一覧</h1>
+        </header>
+
+        <div className="students-list">
+          <div className="hub-actions">
+            <button onClick={handleSyncMembers} disabled={hubLoading}>
+              {hubLoading ? '同期中...' : '部員データを同期'}
+            </button>
+          </div>
+          {hubMsg && <p className="hub-msg">{hubMsg}</p>}
+          <input
+            className="search-input"
+            type="text"
+            placeholder="名前・学籍番号・Discord名で検索"
+            value={memberSearch}
+            onChange={e => setMemberSearch(e.target.value)}
+          />
+          <p className="students-count">{filtered.length}名 / {hubMembers.length}名</p>
+          <table className="students-table">
+            <thead>
+              <tr>
+                <th></th>
+                <th>Discord名</th>
+                <th>本名</th>
+                <th>学籍番号</th>
+              </tr>
+            </thead>
+            <tbody>
+              {filtered.map((m) => (
+                <tr key={m.id}>
+                  <td>
+                    {m.avatar_url ? (
+                      <img src={m.avatar_url} alt="" style={{ width: 24, height: 24, borderRadius: '50%', verticalAlign: 'middle' }} />
+                    ) : (
+                      <span style={{ display: 'inline-block', width: 24, height: 24, borderRadius: '50%', background: '#dee2e6', textAlign: 'center', lineHeight: '24px', fontSize: 12 }}>?</span>
+                    )}
+                  </td>
+                  <td>{m.display_name || m.username || '-'}</td>
+                  <td>{m.real_name || '-'}</td>
+                  <td className="mono">{m.student_id || '-'}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+          {filtered.length === 0 && (
+            <p className="empty-msg">
+              {memberSearch ? '検索に一致する部員がいません' : '部員データがありません。Hub連携設定から同期してください。'}
+            </p>
+          )}
+        </div>
+      </div>
+    )
+  }
+
   if (page === 'students') {
     return (
       <div className="app">
         <header className="scan-header">
           <button className="back-btn" onClick={handleBack}>← 戻る</button>
-          <h1>学生一覧</h1>
+          <h1>学生証一覧</h1>
         </header>
 
         <div className="students-list">
@@ -290,6 +452,21 @@ function App() {
         >
           CSV出力
         </button>
+        <button
+          className="export-btn"
+          onClick={async () => {
+            const api = window.pywebview?.api
+            if (!api || !activeSession) return
+            const result = await api.sync_attendances(activeSession.id)
+            if (result.status === 'synced') {
+              alert(`${result.count}件の出席データをHubに同期しました`)
+            } else {
+              alert(`同期失敗: ${result.message}`)
+            }
+          }}
+        >
+          Hub同期
+        </button>
       </header>
 
       <div className={`status ${status}`}>
@@ -300,16 +477,48 @@ function App() {
       {lastRead && lastRead.student_id && (
         <div className={`card-info ${status === 'done' ? 'highlight' : ''}`}>
           <p className="student-id">学籍番号: {lastRead.student_id}</p>
-          <p className="student-name">{lastRead.student_name}</p>
+          <div className="student-info-row">
+            <p className="student-name">{lastRead.student_name}</p>
+            {lastRead.discord_name && (
+              <span className="student-discord-badge">
+                {lastRead.discord_avatar && (
+                  <img src={lastRead.discord_avatar} alt="" className="student-discord-avatar" />
+                )}
+                {lastRead.discord_name}
+              </span>
+            )}
+          </div>
         </div>
       )}
 
       <div className="attendance-list">
-        <h2>出席者（{attendances.length}名）</h2>
+        <div className="attendance-header">
+          <h2>出席者（{attendances.length}名）</h2>
+          <button
+            className="refresh-discord-btn"
+            onClick={async () => {
+              const api = window.pywebview?.api
+              if (!api || !activeSession) return
+              await api.refresh_discord_names(activeSession.id)
+              const list = await api.get_attendances(activeSession.id)
+              setAttendances(list)
+            }}
+          >
+            Discord更新
+          </button>
+        </div>
         {attendances.map((a) => (
           <div key={a.id} className="attendance-item">
             <span className="attendance-id">{a.student_id}</span>
             <span className="attendance-name">{a.student_name}</span>
+            {a.discord_name && (
+              <span className="attendance-discord-name">
+                {a.discord_avatar && (
+                  <img src={a.discord_avatar} alt="" className="attendance-discord-avatar" />
+                )}
+                {a.discord_name}
+              </span>
+            )}
             <span className="attendance-time">{a.scanned_at?.slice(11, 16)}</span>
             <NoteInput attendance={a} />
           </div>

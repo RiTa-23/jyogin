@@ -259,10 +259,62 @@ h1 {
   font-weight: 700;
 }
 
+.student-info-row {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  justify-content: center;
+}
+
+.student-discord-badge {
+  display: flex;
+  align-items: center;
+  gap: 0.3rem;
+  font-size: 0.85rem;
+  color: #7c3aed;
+  font-weight: 500;
+}
+
+.student-discord-avatar {
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
 /* 出席者一覧 */
 .attendance-list {
   text-align: left;
   margin-top: 1rem;
+}
+
+.attendance-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 0.5rem;
+}
+
+.attendance-header h2 {
+  font-size: 1rem;
+  color: #666;
+  margin-bottom: 0;
+}
+
+.refresh-discord-btn {
+  padding: 0.4rem 0.8rem;
+  background: #7c3aed;
+  color: white;
+  border: none;
+  border-radius: 6px;
+  font-size: 0.8rem;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.refresh-discord-btn:hover {
+  background: #6d28d9;
 }
 
 .attendance-list h2 {
@@ -289,6 +341,22 @@ h1 {
 .attendance-name {
   font-weight: 600;
   white-space: nowrap;
+}
+
+.attendance-discord-name {
+  font-size: 0.75rem;
+  color: #7c3aed;
+  white-space: nowrap;
+  display: flex;
+  align-items: center;
+  gap: 0.3rem;
+}
+
+.attendance-discord-avatar {
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  flex-shrink: 0;
 }
 
 .attendance-time {
@@ -356,4 +424,79 @@ h1 {
   text-align: center;
   color: #adb5bd;
   padding: 2rem 0;
+}
+
+/* Hub連携設定 */
+.hub-settings {
+  text-align: left;
+  padding: 0.5rem 0;
+}
+
+.hub-field {
+  margin-bottom: 1rem;
+}
+
+.hub-field label {
+  display: block;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: #495057;
+  margin-bottom: 0.3rem;
+}
+
+.hub-field input {
+  width: 100%;
+  padding: 0.5rem 0.75rem;
+  border: 1px solid #ced4da;
+  border-radius: 6px;
+  font-size: 0.9rem;
+  box-sizing: border-box;
+}
+
+.hub-actions {
+  display: flex;
+  gap: 0.5rem;
+  margin-bottom: 1rem;
+}
+
+.hub-actions button {
+  flex: 1;
+  padding: 0.5rem;
+  border: none;
+  border-radius: 6px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  cursor: pointer;
+  background: #228be6;
+  color: white;
+}
+
+.hub-actions button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.hub-msg {
+  font-size: 0.85rem;
+  color: #228be6;
+  margin-bottom: 1rem;
+}
+
+.search-input {
+  width: 100%;
+  padding: 0.5rem 0.75rem;
+  margin-bottom: 0.75rem;
+  border: 1px solid #ced4da;
+  border-radius: 6px;
+  font-size: 0.9rem;
+  box-sizing: border-box;
+}
+
+.hub-members {
+  margin-top: 1rem;
+}
+
+.hub-members h2 {
+  font-size: 0.95rem;
+  margin-bottom: 0.5rem;
 }
